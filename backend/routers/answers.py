@@ -26,9 +26,17 @@ def submit_answer(delivery_id: int, body: AnswerCreateRequest, current_user: Use
         raise HTTPException(status_code=403, detail="부모 권한만 답변 가능합니다.")
     if delivery.recipient_id is not None and delivery.recipient_id != current_user.id:
         raise HTTPException(status_code=403, detail="이 질문의 수신자로 지정된 부모만 답변할 수 있습니다.")
-    if delivery.status == "answered": raise HTTPException(status_code=400, detail="이미 답변된 질문입니다.")
-    if body.question not in json.loads(delivery.questions_bundle):
+    bundle = [delivery.target_question]
+    if delivery.questions_bundle:
+        try:
+            parsed = json.loads(delivery.questions_bundle)
+            if isinstance(parsed, list):
+                bundle = parsed
+        except Exception:
+            bundle = [delivery.target_question]
+    if body.question != delivery.target_question and body.question not in bundle:
         raise HTTPException(status_code=400, detail="전달된 질문 중 하나를 선택해 주세요.")
+
     final_answer = body.final_answer
     if not final_answer:
         final_answer = polish_answer(AnswerRequest(answer=body.answer, question=body.question, tone=body.tone))["polished"]

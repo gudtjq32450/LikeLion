@@ -108,7 +108,8 @@ class FamilyFlowTest(unittest.TestCase):
             headers=parent_headers,
         )
         self.assertEqual(pending.status_code, 200, pending.text)
-        self.assertEqual(len(pending.json()), 1)
+        self.assertIn(delivery_data["id"], [item["id"] for item in pending.json()])
+
 
         answer = self.client.post(
             f"/api/answers/deliveries/{delivery_data['id']}",

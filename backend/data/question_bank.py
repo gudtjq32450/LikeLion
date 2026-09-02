@@ -92,3 +92,17 @@ LIGHT_TARGET_RULES = [
     (("취미", "주말", "쉬는 날"), "시간 가는 줄 모르고 즐겼던 취미나 주말 활동이 있었나요?"),
     (("학교", "학창", "친구"), "학창 시절 친구들과 가장 많이 웃었던 기억은 무엇인가요?"),
 ]
+
+# 기본 보편 질문 풀: 중복 없이 풍부한 40여 개의 질문 모음
+ALL_SYSTEM_QUESTIONS = []
+for _category_data in QUESTION_POOLS.values():
+    for _q in _category_data["questions"]:
+        if _q not in ALL_SYSTEM_QUESTIONS:
+            ALL_SYSTEM_QUESTIONS.append(_q)
+for _q in GENERAL_QUESTIONS:
+    if _q not in ALL_SYSTEM_QUESTIONS:
+        ALL_SYSTEM_QUESTIONS.append(_q)
+for _q in LIGHT_QUESTIONS:
+    if _q not in ALL_SYSTEM_QUESTIONS:
+        ALL_SYSTEM_QUESTIONS.append(_q)
+

@@ -7,15 +7,23 @@ def _call_gemini(*, api_key: str, instructions: str, input_text: str, schema: di
     try:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
-        model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        model_name = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
         prompt = f"{instructions}\n\n[반환 형식]\n반드시 순수 JSON으로만 응답하세요.\n스키마: {json.dumps(schema, ensure_ascii=False)}"
         model = genai.GenerativeModel(model_name=model_name, generation_config={"response_mime_type": "application/json", "max_output_tokens": max_output_tokens, "temperature": 0.7})
         response = model.generate_content([prompt, input_text])
         if response and response.text:
-            return json.loads(response.text.strip())
+            raw = response.text.strip()
+            if raw.startswith("```json"):
+                raw = raw[7:]
+            elif raw.startswith("```"):
+                raw = raw[3:]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            return json.loads(raw.strip())
     except Exception as e:
         print(f"[Gemini Error] {e}")
     return None
+
 
 def _call_openai(*, api_key: str, instructions: str, input_text: str, schema_name: str, schema: dict, max_output_tokens: int = 500) -> dict | None:
     payload = {

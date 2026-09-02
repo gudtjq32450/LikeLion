@@ -1,6 +1,6 @@
 import { Icon } from '../utils/icons'
 
-export default function LibraryPage({ library, formatDate, react, openRaw, setOpenRaw, childUser }) {
+export default function LibraryPage({ library, formatDate, react, childUser }) {
   return (
     <main className="page library">
       <div className="hero">
@@ -39,13 +39,8 @@ export default function LibraryPage({ library, formatDate, react, openRaw, setOp
                   <button onClick={() => react(item.id, 'thanks')}>고마워요 {item.thanks_count > 0 && `(${item.thanks_count})`}</button>
                   <button onClick={() => react(item.id, 'moved')}>감동이에요 {item.moved_count > 0 && `(${item.moved_count})`}</button>
                 </div>
-                <button onClick={() => setOpenRaw(openRaw === item.id ? null : item.id)}>
-                  {openRaw === item.id ? '원문 접기' : '원문 보기'}
-                </button>
               </div>
-              {openRaw === item.id && (
-                <div className="raw"><b>원래 건넨 말씀</b><p>{item.raw_answer}</p></div>
-              )}
+
               {childUser && item.reference_answers?.length > 0 && (
                 <aside className="reference-wisdom">
                   <div><b>같은 질문에 대한 또 다른 지혜</b><span>다른 가족의 익명 답변</span></div>

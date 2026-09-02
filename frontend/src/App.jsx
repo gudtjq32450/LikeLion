@@ -70,7 +70,6 @@ export default function App() {
   const [recommendationReason, setRecommendationReason] = useState('')
   const [answerTone, setAnswerTone] = useState('warm')
   const [library, setLibrary] = useState([])
-  const [openRaw, setOpenRaw] = useState(null)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteData, setInviteData] = useState(null)
   const [inviteLoading, setInviteLoading] = useState(false)
@@ -662,7 +661,7 @@ export default function App() {
       )}
 
       {token && family && screen === 'library' && (
-        <LibraryPage library={library} formatDate={formatDate} react={react} openRaw={openRaw} setOpenRaw={setOpenRaw} childUser={childUser} />
+        <LibraryPage library={library} formatDate={formatDate} react={react} childUser={childUser} />
       )}
 
       <footer>

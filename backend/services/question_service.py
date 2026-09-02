@@ -1,15 +1,20 @@
+import json
 import random
 import re
+from sqlalchemy.orm import Session
 
 from data.question_bank import (
+    ALL_SYSTEM_QUESTIONS,
     GENERAL_QUESTIONS,
     LIGHT_KEYWORDS,
     LIGHT_QUESTIONS,
     LIGHT_TARGET_RULES,
     QUESTION_POOLS,
 )
+from models import Answer, QuestionDelivery
 from schemas.question import QuestionRequest
 from services.openai_client import request_structured_output
+
 
 
 def local_question_feed(text: str, emotion: str) -> dict:
@@ -115,3 +120,120 @@ def transform_question(body: QuestionRequest) -> dict:
             else "자녀의 고민을 익명화한 회고 질문 한 개로 전달합니다."
         ),
     }
+
+
+def ensure_family_question_pool(
+    db: Session,
+    family_id: int,
+    parent_user_id: int,
+    pool_size: int = 10,
+) -> list[QuestionDelivery]:
+    # 1. 이미 답변된 모든 질문 텍스트 (영구 소모되어 다시 나오지 않음)
+    answered_from_answers = {
+        row[0]
+        for row in db.query(Answer.question)
+        .join(QuestionDelivery, Answer.delivery_id == QuestionDelivery.id)
+        .filter(QuestionDelivery.family_id == family_id)
+        .all()
+    }
+    answered_from_deliveries = {
+        row[0]
+        for row in db.query(QuestionDelivery.target_question)
+        .filter(QuestionDelivery.family_id == family_id, QuestionDelivery.status == "answered")
+        .all()
+    }
+    answered_questions = answered_from_answers | answered_from_deliveries
+
+    # 2. 현재 미답변 상태인 자녀의 위장 질문 (pending stealth)
+    child_stealth = (
+        db.query(QuestionDelivery)
+        .filter(
+            QuestionDelivery.family_id == family_id,
+            QuestionDelivery.status == "pending",
+            QuestionDelivery.mode == "stealth",
+            QuestionDelivery.sender_id != parent_user_id,
+        )
+        .order_by(QuestionDelivery.created_at.asc(), QuestionDelivery.id.asc())
+        .all()
+    )
+
+    # 3. 현재 미답변 상태인 자녀의 단독 질문 (pending direct)
+    child_direct = (
+        db.query(QuestionDelivery)
+        .filter(
+            QuestionDelivery.family_id == family_id,
+            QuestionDelivery.status == "pending",
+            QuestionDelivery.mode == "direct",
+        )
+        .order_by(QuestionDelivery.created_at.desc())
+        .all()
+    )
+
+    # 4. 현재 미답변 상태인 시스템 보편 질문 (pending system)
+    raw_system = (
+        db.query(QuestionDelivery)
+        .filter(
+            QuestionDelivery.family_id == family_id,
+            QuestionDelivery.status == "pending",
+            QuestionDelivery.mode == "system",
+        )
+        .order_by(QuestionDelivery.created_at.asc(), QuestionDelivery.id.asc())
+        .all()
+    )
+
+    # 자녀 질문과 겹치거나 이미 답변된 시스템 질문은 중복 정리
+    child_question_texts = {d.target_question for d in child_stealth} | {d.target_question for d in child_direct}
+    current_system = []
+    for sys_item in raw_system:
+        if sys_item.target_question in child_question_texts or sys_item.target_question in answered_questions:
+            db.delete(sys_item)
+        else:
+            current_system.append(sys_item)
+    if len(raw_system) != len(current_system):
+        db.commit()
+
+    # 5. 목표 풀 크기(10개)에서 자녀 위장 질문 수(k)를 뺀 만큼 보편 질문 슬롯 결정
+    k = len(child_stealth)
+    needed_system = max(0, pool_size - k)
+
+    # 6. 시스템 보편 질문 개수 조정
+    if len(current_system) > needed_system:
+        excess = current_system[needed_system:]
+        for item in excess:
+            db.delete(item)
+        db.commit()
+        current_system = current_system[:needed_system]
+    elif len(current_system) < needed_system:
+        needed_count = needed_system - len(current_system)
+        used_questions = (
+            answered_questions
+            | child_question_texts
+            | {d.target_question for d in current_system}
+        )
+
+        for q in ALL_SYSTEM_QUESTIONS:
+            if needed_count <= 0:
+                break
+            if q not in used_questions:
+                sys_delivery = QuestionDelivery(
+                    family_id=family_id,
+                    sender_id=parent_user_id,
+                    recipient_id=parent_user_id,
+                    emotion="일상",
+                    mode="system",
+                    target_question=q,
+                    questions_bundle=json.dumps([q], ensure_ascii=False),
+                    status="pending",
+                )
+                db.add(sys_delivery)
+                db.commit()
+                db.refresh(sys_delivery)
+                current_system.append(sys_delivery)
+                used_questions.add(q)
+                needed_count -= 1
+
+    # 7. 합산 결과 반환: stealth 질문들과 시스템 질문들을 섞어 총 10개 풀 유지
+    combined_feed = sorted(child_stealth + current_system, key=lambda d: d.id)
+    return child_direct + combined_feed
+
+
