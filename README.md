@@ -6,9 +6,32 @@
 
 ## 서버실행
 
-backend 터미널 uvicorn main:app --reload
+### 원클릭 실행
 
-frontend 터미널 npm run dev
+Windows에서는 프로젝트 루트의 `START.bat` 또는 `start-windows.bat`을 더블클릭합니다.
+백엔드와 프런트엔드가 함께 실행되고 `http://localhost:5173`이 열립니다.
+종료할 때는 `stop-windows.bat`을 실행합니다.
+
+macOS에서는 최초 한 번 실행 권한을 부여한 뒤 `start-macos.command`를 더블클릭합니다.
+
+```bash
+chmod +x start-macos.command stop-macos.command
+```
+
+종료할 때는 `stop-macos.command`를 실행합니다.
+
+다른 PC에서도 폴더 이름이나 저장 위치와 관계없이 실행할 수 있습니다. 각 PC에는
+Python 3.10 이상과 Node.js LTS가 설치되어 있어야 하며, 최초 실행 시 패키지를
+설치하므로 인터넷 연결이 필요합니다. `.venv`와 `node_modules`는 복사하지 않아도 됩니다.
+
+AI 질문 다듬기를 사용하려면 `backend/.env.example`을 `backend/.env`로 복사한 뒤
+`OPENAI_API_KEY` 값을 입력합니다. 실제 `backend/.env`는 Git과 배포 ZIP에 포함하지 않습니다.
+
+### 직접 실행
+
+backend 터미널: `uvicorn main:app --reload`
+
+frontend 터미널: `npm run dev`
 
 ### Frontend
 
