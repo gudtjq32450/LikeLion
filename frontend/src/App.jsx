@@ -11,7 +11,17 @@ import LibraryPage from './components/LibraryPage'
 import FamilyPanel from './components/FamilyPanel'
 import { Icon } from './utils/icons'
 
-const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+const getInitialApiUrl = () => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('seuljjeock-api-url')
+    if (saved) return saved
+    if (window.Capacitor?.isNativePlatform?.() || window.Capacitor?.getPlatform?.() === 'android') {
+      return import.meta.env.VITE_API_URL || 'https://prudishly-outdoors-eliminate.ngrok-free.dev'
+    }
+  }
+  return import.meta.env.VITE_API_URL || ''
+}
+const API = getInitialApiUrl()
 const heroBackgrounds = [heroEnvelopeEyes, heroLetter]
 const NICKNAME_MAX_LENGTH = 12
 const roleOptions = [
@@ -79,7 +89,8 @@ export default function App() {
   const [notice, setNotice] = useState('')
   const [recording, setRecording] = useState(false)
   const [heroIndex, setHeroIndex] = useState(0)
-  const timer = useRef()
+  const recognitionRef = useRef(null)
+  const baseAnswerRef = useRef('')
 
   const membership = family?.members?.find((member) => member.user_id === user?.id)
   const currentRole = membership?.role || userRole
@@ -149,12 +160,24 @@ export default function App() {
   }
 
   const chooseDelivery = (delivery) => {
+    if (recording && recognitionRef.current) {
+      try { recognitionRef.current.stop() } catch {}
+      setRecording(false)
+    }
     setCurrentDelivery(delivery)
     setSelectedQuestion(delivery.questions?.[0] || delivery.target_question)
     setAnswer('')
     setPolished('')
     setRecommendationReason('')
   }
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort() } catch {}
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const checkHealth = async () => {
@@ -354,17 +377,77 @@ export default function App() {
   }
 
   function record() {
-    if (recording) { clearTimeout(timer.current); return setRecording(false) }
-    setRecording(true)
-    setNotice('목소리를 듣고 있어요…')
-    timer.current = setTimeout(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      setNotice('현재 브라우저에서는 음성 인식을 지원하지 않습니다. Chrome 또는 Edge 브라우저를 이용해 주세요.')
+      return
+    }
+
+    if (recording) {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop() } catch {}
+      }
       setRecording(false)
-      setAnswer('나도 그때는 앞이 캄캄하고 막막했단다. 그래도 하루하루 버티다 보니 다 지나가더라.')
-      setNotice('음성을 글로 옮겼어요.')
-    }, 2200)
+      setNotice('음성 입력을 완료했습니다.')
+      return
+    }
+
+    try {
+      const recognition = new SpeechRecognition()
+      recognition.lang = 'ko-KR'
+      recognition.continuous = true
+      recognition.interimResults = true
+
+      baseAnswerRef.current = answer.trim() ? answer.trim() + ' ' : ''
+
+      recognition.onstart = () => {
+        setRecording(true)
+        setNotice('목소리를 듣고 있어요... 편하게 말씀해 보세요.')
+      }
+
+      recognition.onresult = (event) => {
+        let transcript = ''
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript
+        }
+        const fullText = (baseAnswerRef.current + transcript).trim()
+        setAnswer(fullText)
+        setPolished('')
+        setRecommendationReason('')
+      }
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error)
+        setRecording(false)
+        if (event.error === 'not-allowed') {
+          setNotice('마이크 사용 권한이 차단되었습니다. 브라우저 설정에서 마이크를 허용해 주세요.')
+        } else if (event.error === 'no-speech') {
+          setNotice('음성이 감지되지 않았습니다. 다시 말씀해 보세요.')
+        } else if (event.error === 'network') {
+          setNotice('음성 인식 서버와의 연결 상태를 확인해 주세요.')
+        } else if (event.error !== 'aborted') {
+          setNotice('음성 인식 중 오류가 발생했습니다.')
+        }
+      }
+
+      recognition.onend = () => {
+        setRecording(false)
+      }
+
+      recognitionRef.current = recognition
+      recognition.start()
+    } catch (err) {
+      console.error('Speech recognition start failed:', err)
+      setRecording(false)
+      setNotice('음성 인식을 시작하지 못했습니다.')
+    }
   }
 
   async function polish() {
+    if (recording && recognitionRef.current) {
+      try { recognitionRef.current.stop() } catch {}
+      setRecording(false)
+    }
     if (!answer.trim()) return setNotice('짧게라도 경험을 들려주세요.')
     setLoading(true)
     try {
@@ -385,6 +468,10 @@ export default function App() {
   }
 
   async function saveAnswer(version = 'polished') {
+    if (recording && recognitionRef.current) {
+      try { recognitionRef.current.stop() } catch {}
+      setRecording(false)
+    }
     if (!currentDelivery?.id) return setNotice('답변할 대상 질문이 없습니다.')
     const finalAnswer = version === 'original' ? answer : polished
     if (!finalAnswer.trim()) return setNotice('보낼 답변을 먼저 작성해 주세요.')

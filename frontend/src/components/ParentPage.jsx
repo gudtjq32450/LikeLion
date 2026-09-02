@@ -120,8 +120,13 @@ export default function ParentPage({
               </div>
             </div>
             <div className={`recorder ${recording ? 'live' : ''}`}>
-              <button onClick={record}><Icon type="mic" /></button>
-              <div><b>음성으로 들려주기</b><small>{recording ? '음성을 듣고 있습니다...' : '마이크 버튼을 눌러 말씀해 보세요'}</small></div>
+              <button type="button" onClick={record} title={recording ? '음성 입력 완료' : '음성 입력 시작'}>
+                <Icon type="mic" />
+              </button>
+              <div>
+                <b>음성으로 들려주기</b>
+                <small>{recording ? '말씀하시는 내용이 바로 적힙니다. (마이크를 다시 누르면 완료)' : '마이크 버튼을 눌러 말씀해 보세요'}</small>
+              </div>
               {recording && <div className="wave"><i /><i /><i /></div>}
             </div>
 
