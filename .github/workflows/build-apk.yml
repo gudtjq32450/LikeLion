@@ -45,6 +45,11 @@ jobs:
           cp -rf frontend/dist/* frontend/android/app/src/main/assets/public/
           cp -f frontend/capacitor.config.json frontend/android/app/src/main/assets/capacitor.config.json
 
+      - name: Accept Android SDK Licenses & Install Platform 36
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
+
       - name: Build Android APK
         working-directory: frontend/android
         run: ./gradlew assembleDebug --stacktrace
