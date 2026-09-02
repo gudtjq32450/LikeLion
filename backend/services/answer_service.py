@@ -4,7 +4,7 @@ from schemas.answer import AnswerRequest
 from services.openai_client import request_structured_output
 
 
-def ai_polish(body: AnswerRequest) -> str | None:
+def ai_polish(body: AnswerRequest) -> tuple[str, str] | None:
     schema = {
         "type": "object",
         "properties": {"polished": {"type": "string"}},
@@ -28,7 +28,7 @@ def ai_polish(body: AnswerRequest) -> str | None:
         return None
 
     polished = parsed.get("polished")
-    return polished.strip() if polished else None
+    return (polished.strip(), parsed.get("_provider", "ai")) if polished else None
 
 
 def polish_local(text: str, question: str) -> str:
@@ -53,8 +53,8 @@ def polish_local(text: str, question: str) -> str:
 
 
 def polish_answer(body: AnswerRequest) -> dict:
-    polished = ai_polish(body)
-    source = "openai" if polished else "local"
+    ai_result = ai_polish(body)
+    polished, source = ai_result if ai_result else (None, "local")
     return {
         "polished": polished or polish_local(body.answer, body.question),
         "original": body.answer,

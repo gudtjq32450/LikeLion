@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 import './QuestionOptions.css'
 import './FeatureUpdates.css'
+import heroEnvelopeEyes from './assets/hero-envelope-eyes.png'
+import heroLetter from './assets/hero-letter.gif'
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+const heroBackgrounds = [heroEnvelopeEyes, heroLetter]
 
 const emotions = [
   ['지침', '😮‍💨'],
@@ -61,6 +64,7 @@ export default function App() {
   const [authRole, setAuthRole] = useState('child')
   const [inviteCodeInput, setInviteCodeInput] = useState('')
   const [familyNameInput, setFamilyNameInput] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
 
   // API 서버 상태 감시 인디케이터 ('checking' | 'online' | 'offline')
   const [apiStatus, setApiStatus] = useState('checking')
@@ -87,17 +91,54 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [notice, setNotice] = useState('')
   const [recording, setRecording] = useState(false)
+  const [heroIndex, setHeroIndex] = useState(0)
   const timer = useRef()
 
-  const authHeaders = () => ({
+  const authHeaders = useCallback(() => ({
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  })
+  }), [token])
 
   const go = (next) => {
     setScreen(next)
     setNotice('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const logout = () => {
+    localStorage.removeItem('seuljjeock-token')
+    localStorage.removeItem('seuljjeock-user')
+    localStorage.removeItem('seuljjeock-family')
+    setToken('')
+    setUser(null)
+    setFamily(null)
+    setInviteCode('')
+    setPendingDeliveries([])
+    setLibrary([])
+    setCurrentDelivery(null)
+    setAuthMode('login')
+    go('child')
+  }
+
+  const createInvite = async () => {
+    setNotice('')
+    try {
+      const res = await fetch(`${API}/api/families/invites`, {
+        method: 'POST',
+        headers: authHeaders(),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || '초대 코드 생성 실패')
+      setInviteCode(data.invite_code)
+      try {
+        await navigator.clipboard.writeText(data.invite_code)
+        setNotice(`초대 코드 ${data.invite_code}를 복사했습니다.`)
+      } catch {
+        setNotice(`초대 코드: ${data.invite_code}`)
+      }
+    } catch (err) {
+      setNotice(err.message)
+    }
   }
 
   // 1. API 헬스체크 루프 (5초마다 백엔드 감시)
@@ -124,8 +165,16 @@ export default function App() {
     return () => clearInterval(interval)
   }, [])
 
+  useEffect(() => {
+    if (token) return undefined
+    const interval = setInterval(() => {
+      setHeroIndex((current) => (current + 1) % heroBackgrounds.length)
+    }, 6500)
+    return () => clearInterval(interval)
+  }, [token])
+
   // 2. 미답변 질문 및 서재 목록 실시간 동기화
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     if (!token || !family?.id) return
     try {
       const qRes = await fetch(`${API}/api/questions/deliveries?family_id=${family.id}&status=pending`, {
@@ -153,13 +202,15 @@ export default function App() {
     } catch {
       setNotice('서버 데이터를 가져오는 중 오류가 발생했습니다.')
     }
-  }
+  }, [authHeaders, family, token])
 
   useEffect(() => {
     if (token && family?.id) {
+      // 서버 상태를 화면 진입 시 동기화해야 하므로 의도적으로 effect에서 갱신합니다.
+      // oxlint-disable-next-line react-hooks/set-state-in-effect
       refreshData()
     }
-  }, [token, family?.id, screen])
+  }, [family?.id, refreshData, screen, token])
 
   // 3. 인증 및 가족 처리
   const handleAuthSubmit = async (e) => {
@@ -281,9 +332,10 @@ export default function App() {
         body: JSON.stringify({ answer, question: selectedQuestion }),
       })
       const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || '답변 다듬기 실패')
       setPolished(data.polished)
-    } catch {
-      setPolished('나도 그 시절에는 두려웠단다. 하지만 그 시간이 지나고 보니 다음 길을 찾는 소중한 힘이 되었어.')
+    } catch (err) {
+      setNotice(err.message)
     } finally {
       setLoading(false)
     }
@@ -320,15 +372,197 @@ export default function App() {
   // 8. 서재 공감 반응
   async function react(id, type) {
     try {
-      await fetch(`${API}/api/answers/${id}/reactions`, {
+      const res = await fetch(`${API}/api/answers/${id}/reactions`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ reaction_type: type }),
       })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || '반응 저장 실패')
       setLibrary(library.map((x) => (x.id === id ? { ...x, [`${type}_count`]: (x[`${type}_count`] || 0) + 1 } : x)))
-    } catch {
-      // ignore
+    } catch (err) {
+      setNotice(err.message)
     }
+  }
+
+  if (!token) {
+    return (
+      <div className="auth-landing">
+        <div className="hero-backgrounds" aria-hidden="true">
+          {heroBackgrounds.map((image, index) => (
+            <div
+              key={image}
+              className={`hero-background ${heroIndex === index ? 'is-active' : ''}`}
+              style={{ backgroundImage: `url(${image})` }}
+            />
+          ))}
+        </div>
+        <div className="hero-wash" aria-hidden="true" />
+
+        <header className="landing-header">
+          <button className="landing-brand" onClick={() => setHeroIndex((heroIndex + 1) % heroBackgrounds.length)}>
+            <span>슬쩍</span>
+            <small>마음을 잇는 작은 질문</small>
+          </button>
+          <div className={`landing-status ${apiStatus}`}>
+            <i /> {apiStatus === 'online' ? (aiReady ? 'AI 연결됨' : '로컬 모드') : '연결 확인 중'}
+          </div>
+        </header>
+
+        <main className="landing-content">
+          <section className="landing-copy">
+            <p className="landing-kicker">A LETTER BETWEEN US</p>
+            <h1>
+              말하기 어려운 마음을
+              <br />
+              질문 한 장에 담아요.
+            </h1>
+            <p>
+              직접 꺼내기 어려웠던 이야기를 슬쩍 건네보세요.
+              <br />
+              가족의 경험이 다정한 답장이 되어 돌아옵니다.
+            </p>
+            <div className="hero-pagination" aria-label="배경 이미지 선택">
+              {heroBackgrounds.map((_, index) => (
+                <button
+                  key={index}
+                  className={heroIndex === index ? 'is-active' : ''}
+                  onClick={() => setHeroIndex(index)}
+                  aria-label={`${index + 1}번째 배경 보기`}
+                />
+              ))}
+            </div>
+          </section>
+
+          <section className="auth-card">
+            <div className="auth-card-heading">
+              <span>{authMode === 'login' ? '다시 만나 반가워요' : '우리 가족의 첫 페이지'}</span>
+              <h2>{authMode === 'login' ? '로그인' : '회원가입'}</h2>
+              <p>{authMode === 'login' ? '가족에게 도착한 마음을 확인해 보세요.' : '가볍게 시작하고, 천천히 마음을 나눠요.'}</p>
+            </div>
+
+            <form className="auth-form" onSubmit={handleAuthSubmit}>
+              {authMode === 'register' && (
+                <label>
+                  <span>이름 또는 호칭</span>
+                  <input
+                    type="text"
+                    placeholder="예: 딸, 아빠"
+                    value={authName}
+                    onChange={(e) => setAuthName(e.target.value)}
+                    required
+                  />
+                </label>
+              )}
+              <label>
+                <span>이메일</span>
+                <input
+                  type="email"
+                  placeholder="family@example.com"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                <span>비밀번호</span>
+                <input
+                  type="password"
+                  placeholder="4자 이상 입력해 주세요"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  required
+                />
+              </label>
+
+              {notice && <p className="auth-notice">{notice}</p>}
+              <button className="auth-submit" type="submit" disabled={loading}>
+                {loading ? '마음을 여는 중…' : authMode === 'login' ? '로그인하기' : '계정 만들기'}
+                {!loading && <Icon type="arrow" />}
+              </button>
+            </form>
+
+            <div className="auth-switch">
+              <span>{authMode === 'login' ? '아직 계정이 없나요?' : '이미 계정이 있나요?'}</span>
+              <button onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}>
+                {authMode === 'login' ? '회원가입' : '로그인'}
+              </button>
+            </div>
+          </section>
+        </main>
+      </div>
+    )
+  }
+
+  if (!family) {
+    return (
+      <div className="family-onboarding">
+        <div className="onboarding-orb orb-one" />
+        <div className="onboarding-orb orb-two" />
+        <header className="onboarding-header">
+          <b>슬쩍</b>
+          <button onClick={logout}>로그아웃</button>
+        </header>
+        <main className="onboarding-card">
+          <span className="onboarding-step">WELCOME, {user?.name}</span>
+          <h1>{authMode === 'family_create' ? '새 가족의 문을 열어요' : '가족의 초대를 받았나요?'}</h1>
+          <p>한 가족으로 연결되면 질문과 답장을 안전하게 나눌 수 있어요.</p>
+
+          <form className="auth-form onboarding-form" onSubmit={handleAuthSubmit}>
+            {authMode === 'family_create' ? (
+              <label>
+                <span>가족 이름</span>
+                <input
+                  type="text"
+                  placeholder="예: 김가네 마음 우체국"
+                  value={familyNameInput}
+                  onChange={(e) => setFamilyNameInput(e.target.value)}
+                  required
+                />
+              </label>
+            ) : (
+              <label>
+                <span>초대 코드</span>
+                <input
+                  type="text"
+                  placeholder="8자리 코드를 입력해 주세요"
+                  value={inviteCodeInput}
+                  onChange={(e) => setInviteCodeInput(e.target.value.toUpperCase())}
+                  required
+                />
+              </label>
+            )}
+
+            <fieldset className="role-picker">
+              <legend>나의 역할</legend>
+              <label className={authRole === 'child' ? 'selected' : ''}>
+                <input type="radio" name="role" value="child" checked={authRole === 'child'} onChange={() => setAuthRole('child')} />
+                <span>자녀</span>
+                <small>마음을 질문으로 보내요</small>
+              </label>
+              <label className={authRole === 'parent' ? 'selected' : ''}>
+                <input type="radio" name="role" value="parent" checked={authRole === 'parent'} onChange={() => setAuthRole('parent')} />
+                <span>부모</span>
+                <small>경험을 답장으로 남겨요</small>
+              </label>
+            </fieldset>
+
+            {notice && <p className="auth-notice">{notice}</p>}
+            <button className="auth-submit" type="submit" disabled={loading}>
+              {loading ? '연결하는 중…' : authMode === 'family_create' ? '가족 만들기' : '가족과 연결하기'}
+              {!loading && <Icon type="arrow" />}
+            </button>
+          </form>
+
+          <button
+            className="onboarding-switch"
+            onClick={() => setAuthMode(authMode === 'family_join' ? 'family_create' : 'family_join')}
+          >
+            {authMode === 'family_join' ? '초대 코드가 없어요 · 새 가족 만들기' : '이미 초대 코드가 있어요 · 참여하기'}
+          </button>
+        </main>
+      </div>
+    )
   }
 
   return (
@@ -378,6 +612,17 @@ export default function App() {
           )}
         </div>
       </header>
+
+      {token && family && (
+        <div className="session-bar">
+          <span>
+            <b>{family.name}</b> · {user?.name}
+          </span>
+          {inviteCode && <code>{inviteCode}</code>}
+          <button onClick={createInvite}>초대 코드 만들기</button>
+          <button onClick={logout}>로그아웃</button>
+        </div>
+      )}
 
       {/* 인증 및 가족 관리 모달 */}
       {(!token || !family) && (

@@ -5,14 +5,14 @@ from pydantic import BaseModel, Field
 class QuestionRequest(BaseModel):
     worry: str = Field(..., min_length=1)
     emotion: str = Field(default="지침")
-    mode: str = Field(default="stealth")
+    mode: Literal["stealth", "direct"] = "stealth"
 
 class QuestionDeliveryCreate(BaseModel):
     family_id: int
     emotion: str
     worry: str = Field(..., min_length=1)
     recipient_id: int | None = None
-    mode: str = "stealth"
+    mode: Literal["stealth", "direct"] = "stealth"
 
 class QuestionDeliveryResponse(BaseModel):
     id: int

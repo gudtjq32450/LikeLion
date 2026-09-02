@@ -94,19 +94,24 @@ def ai_question_feed(body: QuestionRequest) -> dict | None:
 
     feed = [target, *decoys]
     random.SystemRandom().shuffle(feed)
-    return {"target_question": target, "feed": feed}
+    return {"target_question": target, "feed": feed, "source": parsed.get("_provider", "ai")}
 
 
 def transform_question(body: QuestionRequest) -> dict:
     result = ai_question_feed(body)
-    source = "openai" if result else "local"
+    source = result.get("source", "ai") if result else "local"
     result = result or local_question_feed(body.worry, body.emotion)
+    questions = [result["target_question"]] if body.mode == "direct" else result["feed"]
     return {
-        "question": result["feed"][0],
-        "questions": result["feed"],
+        "question": questions[0],
+        "questions": questions,
         "target_question": result["target_question"],
         "source": source,
         "mode": body.mode,
         "emotion": body.emotion,
-        "privacy": "자녀 질문 한 개가 네 개의 일상 질문 사이에 익명으로 섞였습니다.",
+        "privacy": (
+            "자녀 질문 한 개가 네 개의 일상 질문 사이에 익명으로 섞였습니다."
+            if body.mode == "stealth"
+            else "자녀의 고민을 익명화한 회고 질문 한 개로 전달합니다."
+        ),
     }

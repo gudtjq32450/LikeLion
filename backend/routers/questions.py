@@ -17,6 +17,14 @@ def transform(body: QuestionRequest):
 def create_question_delivery(body: QuestionDeliveryCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     mem = db.query(FamilyMember).filter(FamilyMember.family_id == body.family_id, FamilyMember.user_id == current_user.id).first()
     if not mem: raise HTTPException(status_code=403, detail="가족 구성원이 아닙니다.")
+    if body.recipient_id is not None:
+        recipient = db.query(FamilyMember).filter(
+            FamilyMember.family_id == body.family_id,
+            FamilyMember.user_id == body.recipient_id,
+            FamilyMember.role == "parent",
+        ).first()
+        if not recipient:
+            raise HTTPException(status_code=400, detail="수신자는 해당 가족의 부모 구성원이어야 합니다.")
     req = QuestionRequest(worry=body.worry, emotion=body.emotion, mode=body.mode)
     res = transform_question(req)
     delivery = QuestionDelivery(
@@ -33,6 +41,8 @@ def create_question_delivery(body: QuestionDeliveryCreate, current_user: User = 
 def get_question_deliveries(family_id: int, status: str = Query("pending"), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     mem = db.query(FamilyMember).filter(FamilyMember.family_id == family_id, FamilyMember.user_id == current_user.id).first()
     if not mem: raise HTTPException(status_code=403, detail="조회 권한이 없습니다.")
+    if status not in {"pending", "answered", "all"}:
+        raise HTTPException(status_code=400, detail="status는 pending, answered 또는 all이어야 합니다.")
     query = db.query(QuestionDelivery).filter(QuestionDelivery.family_id == family_id)
     if mem.role == "parent":
         query = query.filter((QuestionDelivery.recipient_id == current_user.id) | (QuestionDelivery.recipient_id.is_(None)))

@@ -52,8 +52,10 @@ def request_structured_output(*, instructions: str, input_text: str, schema_name
     openai_key = os.getenv("OPENAI_API_KEY")
     if gemini_key:
         res = _call_gemini(api_key=gemini_key, instructions=instructions, input_text=input_text, schema=schema, max_output_tokens=max_output_tokens)
-        if res: return res
+        if res:
+            return {**res, "_provider": "gemini"}
     if openai_key:
         res = _call_openai(api_key=openai_key, instructions=instructions, input_text=input_text, schema_name=schema_name, schema=schema, max_output_tokens=max_output_tokens)
-        if res: return res
+        if res:
+            return {**res, "_provider": "openai"}
     return None
