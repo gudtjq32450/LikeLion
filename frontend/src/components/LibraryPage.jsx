@@ -1,13 +1,13 @@
 import { Icon } from '../utils/icons'
 
-export default function LibraryPage({ library, formatDate, react, openRaw, setOpenRaw }) {
+export default function LibraryPage({ library, formatDate, react, openRaw, setOpenRaw, childUser }) {
   return (
     <main className="page library">
       <div className="hero">
         <div>
-          <div className="eyebrow">● 우리 가족 지혜 서재</div>
-          <h1>우리가 나눈 지혜들</h1>
-          <p className="lead">부모님의 경험과 온기가 담긴 답변들을 다시 읽고 간직할 수 있습니다.</p>
+          <div className="eyebrow">● 나의 지혜 서재</div>
+          <h1>{childUser ? '내 질문에 도착한 지혜' : '내가 남긴 지혜'}</h1>
+          <p className="lead">{childUser ? '내가 보낸 질문에 도착한 답변만 간직하는 개인 공간입니다.' : '내가 직접 남긴 답변만 모아 다시 읽을 수 있습니다.'}</p>
         </div>
         <div className="count">
           <Icon type="book" /><b>{library.length}</b><span>개의 이야기</span>
@@ -24,7 +24,11 @@ export default function LibraryPage({ library, formatDate, react, openRaw, setOp
                 <span>{item.emotion || '따뜻함'}</span>
                 <time>{formatDate(item.created_at)}</time>
               </div>
-              <small>질문: {item.question}</small>
+              <div className="question-history">
+                <b>{childUser ? '당시 내가 보낸 질문' : '내가 답한 질문'}</b>
+                <p>{item.original_question || item.question}</p>
+                {item.original_question && item.question !== item.original_question && <small>답변한 질문: {item.question}</small>}
+              </div>
               <blockquote>{item.polished_answer}</blockquote>
               <div className="author">
                 <b>{item.author_name ? item.author_name[0] : '가'}</b>
@@ -41,6 +45,17 @@ export default function LibraryPage({ library, formatDate, react, openRaw, setOp
               </div>
               {openRaw === item.id && (
                 <div className="raw"><b>원래 건넨 말씀</b><p>{item.raw_answer}</p></div>
+              )}
+              {childUser && item.reference_answers?.length > 0 && (
+                <aside className="reference-wisdom">
+                  <div><b>같은 질문에 대한 또 다른 지혜</b><span>다른 가족의 익명 답변</span></div>
+                  {item.reference_answers.map((reference, index) => (
+                    <article key={`${item.id}-reference-${index}`}>
+                      <p>{reference.polished_answer}</p>
+                      <time>{formatDate(reference.created_at)}</time>
+                    </article>
+                  ))}
+                </aside>
               )}
             </article>
           ))

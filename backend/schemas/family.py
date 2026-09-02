@@ -4,11 +4,13 @@ from pydantic import BaseModel, Field
 
 class FamilyCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
-    role: Literal["parent", "child"]
+    role: Literal["son", "daughter", "father", "mother", "parent", "child"]
+    nickname: str | None = Field(default=None, min_length=1, max_length=12)
 
 class FamilyJoinRequest(BaseModel):
     invite_code: str = Field(..., min_length=6, max_length=32)
-    role: Literal["parent", "child"]
+    role: Literal["son", "daughter", "father", "mother", "parent", "child"]
+    nickname: str | None = Field(default=None, min_length=1, max_length=12)
 
 class FamilyInviteResponse(BaseModel):
     invite_code: str

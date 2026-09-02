@@ -138,6 +138,83 @@ class FamilyFlowTest(unittest.TestCase):
         updated_library = self.client.get(f"/api/answers?family_id={family_id}", headers=child_headers)
         self.assertEqual(updated_library.json()[0]["thanks_count"], 1)
 
+    def test_detailed_roles_restore_family_invite_and_final_answer(self):
+        child = self.register_and_login("hero-child@example.com", "가입 이름")
+        parent = self.register_and_login("hero-parent@example.com", "가입 이름")
+        child_headers = self.auth(child["access_token"])
+        parent_headers = self.auth(parent["access_token"])
+
+        created = self.client.post(
+            "/api/families",
+            headers=child_headers,
+            json={"name": "영웅 가족", "role": "son", "nickname": "씩씩이"},
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        family_id = created.json()["id"]
+        self.assertEqual(created.json()["members"][0]["name"], "씩씩이")
+
+        empty_invite = self.client.get(f"/api/families/{family_id}/invite", headers=child_headers)
+        self.assertEqual(empty_invite.status_code, 200, empty_invite.text)
+        self.assertIsNone(empty_invite.json())
+        invite = self.client.post(f"/api/families/{family_id}/invites", headers=child_headers)
+        self.assertEqual(invite.status_code, 200, invite.text)
+        active_invite = self.client.get(f"/api/families/{family_id}/invite", headers=child_headers)
+        self.assertEqual(active_invite.json()["invite_code"], invite.json()["invite_code"])
+
+        joined = self.client.post(
+            "/api/families/join",
+            headers=parent_headers,
+            json={"invite_code": invite.json()["invite_code"], "role": "mother", "nickname": "다정한 엄마"},
+        )
+        self.assertEqual(joined.status_code, 200, joined.text)
+        self.assertEqual({member["role"] for member in joined.json()["members"]}, {"son", "mother"})
+
+        restored = self.client.post(
+            "/api/auth/login",
+            json={"email": "hero-child@example.com", "password": "pass1234"},
+        )
+        self.assertEqual(restored.status_code, 200, restored.text)
+        self.assertEqual(restored.json()["family"]["id"], family_id)
+
+        delivery = self.client.post(
+            "/api/questions/deliveries",
+            headers=child_headers,
+            json={"family_id": family_id, "emotion": "불안", "worry": "진로가 막막해요.", "mode": "direct"},
+        )
+        self.assertEqual(delivery.status_code, 201, delivery.text)
+        self.assertTrue(delivery.json()["should_notify"])
+        self.assertEqual(len(delivery.json()["questions"]), 1)
+
+        polished = self.client.post(
+            "/api/answers/polish",
+            headers=parent_headers,
+            json={"question": delivery.json()["questions"][0], "answer": "나도 처음엔 막막했어.", "tone": "practical"},
+        )
+        self.assertEqual(polished.status_code, 200, polished.text)
+        self.assertEqual(polished.json()["tone"], "practical")
+        self.assertTrue(polished.json()["recommendation_reason"])
+
+        final_answer = "오늘 할 수 있는 작은 일부터 하나씩 시작해 보렴."
+        saved = self.client.post(
+            f"/api/answers/deliveries/{delivery.json()['id']}",
+            headers=parent_headers,
+            json={
+                "question": delivery.json()["questions"][0],
+                "answer": "나도 처음엔 막막했어.",
+                "final_answer": final_answer,
+                "tone": "practical",
+            },
+        )
+        self.assertEqual(saved.status_code, 201, saved.text)
+        self.assertEqual(saved.json()["polished_answer"], final_answer)
+
+        child_library = self.client.get(f"/api/answers?family_id={family_id}", headers=child_headers)
+        parent_library = self.client.get(f"/api/answers?family_id={family_id}", headers=parent_headers)
+        self.assertEqual(child_library.status_code, 200, child_library.text)
+        self.assertEqual(parent_library.status_code, 200, parent_library.text)
+        self.assertEqual(child_library.json()[0]["original_question"], delivery.json()["target_question"])
+        self.assertEqual(parent_library.json()[0]["respondent_id"], parent["user"]["id"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -20,8 +20,9 @@ class QuestionDeliveryResponse(BaseModel):
     sender_id: int
     recipient_id: int | None
     emotion: str
-    mode: str
+    mode: Literal["stealth", "direct"]
     status: Literal["pending", "answered"]
+    should_notify: bool = False
     questions: list[str]
     target_question: str
     created_at: datetime

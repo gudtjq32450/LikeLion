@@ -924,6 +924,9 @@ from services.answer_service import polish_answer
 
 router = APIRouter(prefix="/api/answers", tags=["answers"])
 
+CHILD_ROLES = ("son", "daughter", "child")
+PARENT_ROLES = ("father", "mother", "parent")
+
 @router.post("/polish")
 def polish(body: AnswerRequest):
     return polish_answer(body)
@@ -933,17 +936,42 @@ def submit_answer(delivery_id: int, body: AnswerCreateRequest, current_user: Use
     delivery = db.query(QuestionDelivery).filter(QuestionDelivery.id == delivery_id).first()
     if not delivery: raise HTTPException(status_code=404, detail="질문이 없습니다.")
     mem = db.query(FamilyMember).filter(FamilyMember.family_id == delivery.family_id, FamilyMember.user_id == current_user.id).first()
-    if not mem or mem.role != "parent": raise HTTPException(status_code=403, detail="부모 권한만 답변 가능합니다.")
+    if not mem or mem.role not in PARENT_ROLES:
+        raise HTTPException(status_code=403, detail="부모 권한만 답변 가능합니다.")
+    if delivery.recipient_id is not None and delivery.recipient_id != current_user.id:
+        raise HTTPException(status_code=403, detail="이 질문의 수신자로 지정된 부모만 답변할 수 있습니다.")
     if delivery.status == "answered": raise HTTPException(status_code=400, detail="이미 답변된 질문입니다.")
     if body.question not in json.loads(delivery.questions_bundle):
         raise HTTPException(status_code=400, detail="전달된 질문 중 하나를 선택해 주세요.")
-    polished_res = polish_answer(AnswerRequest(answer=body.answer, question=body.question))
-    answer = Answer(delivery_id=delivery.id, respondent_id=current_user.id, question=body.question, raw_answer=body.answer, polished_answer=polished_res["polished"])
+    final_answer = body.final_answer
+    if not final_answer:
+        final_answer = polish_answer(AnswerRequest(answer=body.answer, question=body.question, tone=body.tone))["polished"]
+    answer = Answer(
+        delivery_id=delivery.id,
+        respondent_id=current_user.id,
+        question=body.question,
+        raw_answer=body.answer,
+        polished_answer=final_answer,
+    )
     db.add(answer)
     delivery.status = "answered"
     db.commit()
     db.refresh(answer)
-    return {"id": answer.id, "delivery_id": answer.delivery_id, "respondent_id": answer.respondent_id, "author_name": current_user.name, "emotion": delivery.emotion, "question": answer.question, "raw_answer": answer.raw_answer, "polished_answer": answer.polished_answer, "thanks_count": 0, "moved_count": 0, "created_at": answer.created_at}
+    return {
+        "id": answer.id,
+        "delivery_id": answer.delivery_id,
+        "respondent_id": answer.respondent_id,
+        "author_name": current_user.name,
+        "emotion": delivery.emotion,
+        "original_question": delivery.target_question,
+        "question": answer.question,
+        "raw_answer": answer.raw_answer,
+        "polished_answer": answer.polished_answer,
+        "thanks_count": 0,
+        "moved_count": 0,
+        "reference_answers": [],
+        "created_at": answer.created_at,
+    }
 
 @router.get("", response_model=list[AnswerResponse])
 def get_library_answers(family_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -953,13 +981,43 @@ def get_library_answers(family_id: int, current_user: User = Depends(get_current
     ).first()
     if not membership:
         raise HTTPException(status_code=403, detail="조회 권한이 없습니다.")
-    answers = db.query(Answer).join(QuestionDelivery, Answer.delivery_id == QuestionDelivery.id).filter(QuestionDelivery.family_id == family_id).order_by(Answer.created_at.desc()).all()
+    query = db.query(Answer).join(QuestionDelivery, Answer.delivery_id == QuestionDelivery.id).filter(QuestionDelivery.family_id == family_id)
+    if membership.role in CHILD_ROLES:
+        query = query.filter(QuestionDelivery.sender_id == current_user.id)
+    else:
+        query = query.filter(Answer.respondent_id == current_user.id)
+    answers = query.order_by(Answer.created_at.desc()).all()
     res = []
     for a in answers:
         u = db.query(User).filter(User.id == a.respondent_id).first()
         tc = db.query(Reaction).filter(Reaction.answer_id == a.id, Reaction.reaction_type == "thanks").count()
         mc = db.query(Reaction).filter(Reaction.answer_id == a.id, Reaction.reaction_type == "moved").count()
-        res.append({"id": a.id, "delivery_id": a.delivery_id, "respondent_id": a.respondent_id, "author_name": u.name if u else "부모님", "emotion": a.delivery.emotion if a.delivery else None, "question": a.question, "raw_answer": a.raw_answer, "polished_answer": a.polished_answer, "thanks_count": tc, "moved_count": mc, "created_at": a.created_at})
+        references = []
+        if membership.role in CHILD_ROLES and a.delivery:
+            related = db.query(Answer).join(QuestionDelivery, Answer.delivery_id == QuestionDelivery.id).filter(
+                QuestionDelivery.family_id != family_id,
+                QuestionDelivery.target_question == a.delivery.target_question,
+                Answer.question == a.delivery.target_question,
+            ).order_by(Answer.created_at.desc()).limit(5).all()
+            references = [
+                {"polished_answer": item.polished_answer, "created_at": item.created_at}
+                for item in related
+            ]
+        res.append({
+            "id": a.id,
+            "delivery_id": a.delivery_id,
+            "respondent_id": a.respondent_id,
+            "author_name": u.name if u else "부모님",
+            "emotion": a.delivery.emotion if a.delivery else None,
+            "original_question": a.delivery.target_question if a.delivery else a.question,
+            "question": a.question,
+            "raw_answer": a.raw_answer,
+            "polished_answer": a.polished_answer,
+            "thanks_count": tc,
+            "moved_count": mc,
+            "reference_answers": references,
+            "created_at": a.created_at,
+        })
     return res
 
 @router.post("/{answer_id}/reactions")
@@ -971,8 +1029,12 @@ def react_answer(answer_id: int, body: ReactionRequest, current_user: User = Dep
         FamilyMember.family_id == answer.delivery.family_id,
         FamilyMember.user_id == current_user.id,
     ).first()
-    if not membership:
-        raise HTTPException(status_code=403, detail="반응을 남길 권한이 없습니다.")
+    can_access = membership and (
+        (membership.role in CHILD_ROLES and answer.delivery.sender_id == current_user.id)
+        or (membership.role in PARENT_ROLES and answer.respondent_id == current_user.id)
+    )
+    if not can_access:
+        raise HTTPException(status_code=403, detail="내 서재의 답변에만 반응할 수 있습니다.")
     reaction = Reaction(answer_id=answer_id, user_id=current_user.id, reaction_type=body.reaction_type)
     db.add(reaction)
     db.commit()
@@ -985,7 +1047,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from auth import create_access_token, get_password_hash, verify_password
 from database import get_db
-from models import User
+from models import FamilyMember, User
 from schemas.auth import TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -1006,7 +1068,35 @@ def login(body: UserLoginRequest, db: Session = Depends(get_db)):
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="이메일 또는 비밀번호가 잘못되었습니다.")
     token = create_access_token({"sub": user.email, "uid": user.id})
-    return {"access_token": token, "token_type": "bearer", "user": user}
+    membership = (
+        db.query(FamilyMember)
+        .filter(FamilyMember.user_id == user.id)
+        .order_by(FamilyMember.id.desc())
+        .first()
+    )
+    family_data = None
+    if membership:
+        family = membership.family
+        family_data = {
+            "id": family.id,
+            "name": family.name,
+            "members": [
+                {
+                    "user_id": member.user.id,
+                    "name": member.user.name,
+                    "email": member.user.email,
+                    "role": member.role,
+                }
+                for member in family.members
+            ],
+            "created_at": family.created_at,
+        }
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": user,
+        "family": family_data,
+    }
 `````
 
 backend/routers/families.py
@@ -1022,16 +1112,43 @@ from schemas.family import FamilyCreateRequest, FamilyDetailResponse, FamilyInvi
 
 router = APIRouter(prefix="/api/families", tags=["families"])
 
+def get_membership(family_id: int, user_id: int, db: Session) -> FamilyMember:
+    membership = db.query(FamilyMember).filter(
+        FamilyMember.family_id == family_id,
+        FamilyMember.user_id == user_id,
+    ).first()
+    if not membership:
+        raise HTTPException(status_code=403, detail="해당 가족의 구성원만 이용할 수 있습니다.")
+    return membership
+
+def serialize_family(family: Family) -> dict:
+    return {
+        "id": family.id,
+        "name": family.name,
+        "members": [
+            {
+                "user_id": member.user.id,
+                "name": member.user.name,
+                "email": member.user.email,
+                "role": member.role,
+            }
+            for member in family.members
+        ],
+        "created_at": family.created_at,
+    }
+
 @router.post("", response_model=FamilyDetailResponse, status_code=status.HTTP_201_CREATED)
 def create_family(body: FamilyCreateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     family = Family(name=body.name)
     db.add(family)
     db.flush()
+    if body.nickname:
+        current_user.name = body.nickname.strip()
     mem = FamilyMember(family_id=family.id, user_id=current_user.id, role=body.role)
     db.add(mem)
     db.commit()
     db.refresh(family)
-    return {"id": family.id, "name": family.name, "members": [{"user_id": current_user.id, "name": current_user.name, "email": current_user.email, "role": body.role}], "created_at": family.created_at}
+    return serialize_family(family)
 
 @router.post("/invites", response_model=FamilyInviteResponse)
 def create_invite(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -1044,22 +1161,57 @@ def create_invite(current_user: User = Depends(get_current_user), db: Session = 
     db.commit()
     return {"invite_code": code, "expires_at": expires_at}
 
+@router.get("/{family_id}", response_model=FamilyDetailResponse)
+def get_family(family_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    membership = get_membership(family_id, current_user.id, db)
+    return serialize_family(membership.family)
+
+@router.get("/{family_id}/invite", response_model=FamilyInviteResponse | None)
+def get_active_invite(family_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    get_membership(family_id, current_user.id, db)
+    invite = db.query(FamilyInvite).filter(
+        FamilyInvite.family_id == family_id,
+        FamilyInvite.expires_at > datetime.utcnow(),
+    ).order_by(FamilyInvite.created_at.desc()).first()
+    if not invite:
+        return None
+    return {"invite_code": invite.code, "expires_at": invite.expires_at}
+
+@router.post("/{family_id}/invites", response_model=FamilyInviteResponse)
+def create_family_invite(family_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    get_membership(family_id, current_user.id, db)
+    active_invite = db.query(FamilyInvite).filter(
+        FamilyInvite.family_id == family_id,
+        FamilyInvite.expires_at > datetime.utcnow(),
+    ).order_by(FamilyInvite.created_at.desc()).first()
+    if active_invite:
+        return {"invite_code": active_invite.code, "expires_at": active_invite.expires_at}
+    code = secrets.token_hex(4).upper()
+    expires_at = datetime.utcnow() + timedelta(days=3)
+    invite = FamilyInvite(family_id=family_id, code=code, expires_at=expires_at)
+    db.add(invite)
+    db.commit()
+    return {"invite_code": code, "expires_at": expires_at}
+
 @router.post("/join", response_model=FamilyDetailResponse)
 def join_family(body: FamilyJoinRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     inv = db.query(FamilyInvite).filter(FamilyInvite.code == body.invite_code, FamilyInvite.expires_at > datetime.utcnow()).first()
     if not inv: raise HTTPException(status_code=404, detail="유효하지 않은 초대 코드입니다.")
     if db.query(FamilyMember).filter(FamilyMember.family_id == inv.family_id, FamilyMember.user_id == current_user.id).first():
         raise HTTPException(status_code=400, detail="이미 참여한 가족입니다.")
+    if body.nickname:
+        current_user.name = body.nickname.strip()
     mem = FamilyMember(family_id=inv.family_id, user_id=current_user.id, role=body.role)
     db.add(mem)
     db.commit()
     fam = db.query(Family).filter(Family.id == inv.family_id).first()
-    return {"id": fam.id, "name": fam.name, "members": [{"user_id": m.user.id, "name": m.user.name, "email": m.user.email, "role": m.role} for m in fam.members], "created_at": fam.created_at}
+    return serialize_family(fam)
 `````
 
 backend/routers/questions.py
 `````
 import json
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from auth import get_current_user
@@ -1070,6 +1222,28 @@ from services.question_service import transform_question
 
 router = APIRouter(prefix="/api/questions", tags=["questions"])
 
+CHILD_ROLES = ("son", "daughter", "child")
+PARENT_ROLES = ("father", "mother", "parent")
+
+def serialize_delivery(delivery: QuestionDelivery) -> dict:
+    questions = json.loads(delivery.questions_bundle)
+    if delivery.mode == "direct":
+        questions = [delivery.target_question]
+    should_notify = delivery.mode == "direct" or delivery.created_at <= datetime.utcnow() - timedelta(hours=24)
+    return {
+        "id": delivery.id,
+        "family_id": delivery.family_id,
+        "sender_id": delivery.sender_id,
+        "recipient_id": delivery.recipient_id,
+        "emotion": delivery.emotion,
+        "mode": delivery.mode,
+        "status": delivery.status,
+        "should_notify": should_notify and delivery.status == "pending",
+        "questions": questions,
+        "target_question": delivery.target_question,
+        "created_at": delivery.created_at,
+    }
+
 @router.post("/transform")
 def transform(body: QuestionRequest):
     return transform_question(body)
@@ -1077,12 +1251,13 @@ def transform(body: QuestionRequest):
 @router.post("/deliveries", response_model=QuestionDeliveryResponse, status_code=status.HTTP_201_CREATED)
 def create_question_delivery(body: QuestionDeliveryCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     mem = db.query(FamilyMember).filter(FamilyMember.family_id == body.family_id, FamilyMember.user_id == current_user.id).first()
-    if not mem: raise HTTPException(status_code=403, detail="가족 구성원이 아닙니다.")
+    if not mem or mem.role not in CHILD_ROLES:
+        raise HTTPException(status_code=403, detail="자녀 권한만 마음을 보낼 수 있습니다.")
     if body.recipient_id is not None:
         recipient = db.query(FamilyMember).filter(
             FamilyMember.family_id == body.family_id,
             FamilyMember.user_id == body.recipient_id,
-            FamilyMember.role == "parent",
+            FamilyMember.role.in_(PARENT_ROLES),
         ).first()
         if not recipient:
             raise HTTPException(status_code=400, detail="수신자는 해당 가족의 부모 구성원이어야 합니다.")
@@ -1096,7 +1271,7 @@ def create_question_delivery(body: QuestionDeliveryCreate, current_user: User = 
     db.add(delivery)
     db.commit()
     db.refresh(delivery)
-    return {"id": delivery.id, "family_id": delivery.family_id, "sender_id": delivery.sender_id, "recipient_id": delivery.recipient_id, "emotion": delivery.emotion, "mode": delivery.mode, "status": delivery.status, "questions": json.loads(delivery.questions_bundle), "target_question": delivery.target_question, "created_at": delivery.created_at}
+    return serialize_delivery(delivery)
 
 @router.get("/deliveries", response_model=list[QuestionDeliveryResponse])
 def get_question_deliveries(family_id: int, status: str = Query("pending"), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -1105,12 +1280,12 @@ def get_question_deliveries(family_id: int, status: str = Query("pending"), curr
     if status not in {"pending", "answered", "all"}:
         raise HTTPException(status_code=400, detail="status는 pending, answered 또는 all이어야 합니다.")
     query = db.query(QuestionDelivery).filter(QuestionDelivery.family_id == family_id)
-    if mem.role == "parent":
+    if mem.role in PARENT_ROLES:
         query = query.filter((QuestionDelivery.recipient_id == current_user.id) | (QuestionDelivery.recipient_id.is_(None)))
     if status != "all":
         query = query.filter(QuestionDelivery.status == status)
     deliveries = query.order_by(QuestionDelivery.created_at.desc()).all()
-    return [{"id": d.id, "family_id": d.family_id, "sender_id": d.sender_id, "recipient_id": d.recipient_id, "emotion": d.emotion, "mode": d.mode, "status": d.status, "questions": json.loads(d.questions_bundle), "target_question": d.target_question, "created_at": d.created_at} for d in deliveries]
+    return [serialize_delivery(delivery) for delivery in deliveries]
 `````
 
 backend/routers/system.py
@@ -1144,10 +1319,17 @@ from pydantic import BaseModel, Field
 class AnswerRequest(BaseModel):
     answer: str = Field(..., min_length=1)
     question: str = Field(..., min_length=1)
+    tone: Literal["firm", "warm", "calm", "practical", "friendly"] = "warm"
 
 class AnswerCreateRequest(BaseModel):
     question: str
     answer: str = Field(..., min_length=1)
+    final_answer: str | None = Field(default=None, min_length=1)
+    tone: Literal["firm", "warm", "calm", "practical", "friendly"] = "warm"
+
+class ReferenceAnswerResponse(BaseModel):
+    polished_answer: str
+    created_at: datetime
 
 class AnswerResponse(BaseModel):
     id: int
@@ -1155,11 +1337,13 @@ class AnswerResponse(BaseModel):
     respondent_id: int
     author_name: str | None = None
     emotion: str | None = None
+    original_question: str | None = None
     question: str
     raw_answer: str
     polished_answer: str
     thanks_count: int = 0
     moved_count: int = 0
+    reference_answers: list[ReferenceAnswerResponse] = Field(default_factory=list)
     created_at: datetime
     class Config:
         from_attributes = True
@@ -1172,6 +1356,7 @@ backend/schemas/auth.py
 `````
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field
+from schemas.family import FamilyDetailResponse
 
 class UserRegisterRequest(BaseModel):
     email: EmailStr
@@ -1194,6 +1379,7 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+    family: FamilyDetailResponse | None = None
 `````
 
 backend/schemas/family.py
@@ -1204,11 +1390,13 @@ from pydantic import BaseModel, Field
 
 class FamilyCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=50)
-    role: Literal["parent", "child"]
+    role: Literal["son", "daughter", "father", "mother", "parent", "child"]
+    nickname: str | None = Field(default=None, min_length=1, max_length=12)
 
 class FamilyJoinRequest(BaseModel):
     invite_code: str = Field(..., min_length=6, max_length=32)
-    role: Literal["parent", "child"]
+    role: Literal["son", "daughter", "father", "mother", "parent", "child"]
+    nickname: str | None = Field(default=None, min_length=1, max_length=12)
 
 class FamilyInviteResponse(BaseModel):
     invite_code: str
@@ -1255,8 +1443,9 @@ class QuestionDeliveryResponse(BaseModel):
     sender_id: int
     recipient_id: int | None
     emotion: str
-    mode: str
+    mode: Literal["stealth", "direct"]
     status: Literal["pending", "answered"]
+    should_notify: bool = False
     questions: list[str]
     target_question: str
     created_at: datetime
@@ -1272,47 +1461,117 @@ backend/services/__init__.py
 backend/services/answer_service.py
 `````
 import re
+from difflib import SequenceMatcher
 
 from schemas.answer import AnswerRequest
 from services.openai_client import request_structured_output
 
 
-def ai_polish(body: AnswerRequest) -> tuple[str, str] | None:
+TONE_GUIDES = {
+    "firm": ("단호하고 분명한 말투", "핵심 기준과 책임을 명확히 전달하되 모욕이나 단정은 피한다."),
+    "warm": ("따뜻하고 공감하는 말투", "먼저 감정을 인정하고 가까운 관계의 온기가 느껴지게 말한다."),
+    "calm": ("차분하고 설명하는 말투", "감정을 가라앉히고 이유와 경험을 순서 있게 설명한다."),
+    "practical": ("현실적이고 해결 중심인 말투", "실행할 수 있는 작은 행동과 구체적인 기준에 초점을 둔다."),
+    "friendly": ("친근하고 편안한 말투", "평소 대화하듯 부담 없이 솔직하고 자연스럽게 말한다."),
+}
+
+TONE_REASONS = {
+    "firm": "단호한 의도는 유지하되 비난처럼 들리는 표현을 줄이면 핵심 조언을 방어적이지 않게 받아들이기 쉬워요.",
+    "warm": "먼저 마음을 인정하는 표현을 더하면 가까운 관계의 온기를 지키면서 경험이 더 잘 전달될 수 있어요.",
+    "calm": "감정적인 표현을 정돈하고 이유를 차분히 설명하면 답변의 뜻을 오해하지 않고 따라가기 쉬워요.",
+    "practical": "조언을 작은 행동과 기준 중심으로 정리하면 부담을 덜 느끼면서 실제로 참고하기 쉬워요.",
+    "friendly": "평소 대화하듯 편안하게 바꾸면 훈계받는 느낌을 줄이고 진심에 더 쉽게 다가갈 수 있어요.",
+}
+
+
+def normalized_text(text: str) -> str:
+    return re.sub(r"[\s\W_]+", "", text).lower()
+
+
+def is_too_similar(original: str, suggestion: str) -> bool:
+    source = normalized_text(original)
+    revised = normalized_text(suggestion)
+    if not source or not revised:
+        return True
+    return source in revised or SequenceMatcher(None, source, revised).ratio() >= 0.9
+
+
+def ai_polish(body: AnswerRequest) -> dict | None:
     schema = {
         "type": "object",
-        "properties": {"polished": {"type": "string"}},
-        "required": ["polished"],
+        "properties": {
+            "polished": {"type": "string"},
+            "recommendation_reason": {"type": "string"},
+        },
+        "required": ["polished", "recommendation_reason"],
         "additionalProperties": False,
     }
+    tone_name, tone_guide = TONE_GUIDES[body.tone]
     instructions = (
-        "당신은 부모가 말한 답변을 가족에게 전하기 좋은 한국어 문장으로 다듬는 편집자다. 먼저 질문이 정확히 무엇을 묻는지 파악하고, 다듬은 답변이 "
-        "그 질문에 직접 답하도록 한다. 부모가 말하지 않은 사건, 감정, 행동, 교훈은 절대 새로 만들지 않는다. 원문의 구체적인 사실과 말투의 개성은 보존하되 "
-        "명령, 비난, 잔소리처럼 들리는 부분만 부드럽게 바꾼다. 음식·취미·여행·학창 시절 같은 가벼운 질문에는 인생 교훈이나 과한 위로를 붙이지 말고 "
-        "밝고 자연스러운 1~2문장으로 쓴다. 실패·불안·관계 같은 깊은 질문에는 경험, 당시 마음, 도움이 된 행동이 원문에 있는 범위에서 드러나도록 2~4문장으로 쓴다. "
-        "답변자는 부모이므로 1인칭 회고 말투를 사용하고, 자녀가 읽는다는 사실을 노골적으로 드러내지 않는다. 질문을 반복하거나 서론을 붙이지 않는다."
+        "당신은 부모가 말한 답변을 가족에게 전하기 좋은 한국어 문장으로 완전히 다시 쓰는 편집자다. "
+        "질문에 직접 답하고, 원문에 없는 사건·감정·행동·교훈은 만들지 않는다. 원문의 사실과 개성은 보존하되 "
+        "원문 문장을 그대로 감싸지 말고 선택한 문체로 자연스러운 하나의 답변을 만든다. 맞춤법, 띄어쓰기, 조사, "
+        "어미, 문장부호도 교정한다. 가벼운 질문은 밝고 자연스러운 1~2문장, 깊은 질문은 원문 범위 안에서 2~4문장으로 쓴다. "
+        "답변자는 부모이며 1인칭 회고 말투를 사용한다. 질문을 반복하거나 서론을 붙이지 않는다. "
+        f"선택 문체는 '{tone_name}'이다. {tone_guide} recommendation_reason에는 무엇을 어떻게 개선했고 왜 전달에 도움이 되는지 1~2문장으로 설명한다."
     )
     parsed = request_structured_output(
         instructions=instructions,
-        input_text=f"질문: {body.question}\n부모의 원문 답변: {body.answer}",
+        input_text=f"질문: {body.question}\n선택 문체: {tone_name}\n부모의 원문 답변: {body.answer}",
         schema_name="polished_parent_answer",
         schema=schema,
     )
     if not parsed:
         return None
-
     polished = parsed.get("polished")
-    return (polished.strip(), parsed.get("_provider", "ai")) if polished else None
+    reason = parsed.get("recommendation_reason")
+    if not polished or not reason or is_too_similar(body.answer, polished):
+        return None
+    return {
+        "polished": polished.strip(),
+        "recommendation_reason": reason.strip(),
+        "source": parsed.get("_provider", "ai"),
+    }
 
 
-def polish_local(text: str, question: str) -> str:
-    text = re.sub(r"\s+", " ", text).strip().rstrip(". ")
-    light_markers = (
-        "음식", "간식", "노래", "취미", "여행", "학창", "웃", "계절",
-        "월급", "닮", "쉬는 날",
-    )
+def rewrite_local_core(text: str) -> str:
+    revised = re.sub(r"\s+", " ", text).strip().rstrip(".!? ")
+    replacements = {
+        "그렇게 하면 안 돼": "그 방법은 다시 한번 생각해 볼 필요가 있어",
+        "정신 차리고": "마음을 가다듬고",
+        "제대로 해": "차근차근 해 나가면 좋겠어",
+        "왜 그것도 못해": "잘되지 않는 부분부터 함께 살펴보자",
+        "네가 문제야": "지금 겪는 어려움부터 돌아볼 필요가 있어",
+        "무조건": "가능하면",
+        "그냥 버텨": "하루씩 견뎌 보자",
+        "하지 마": "피하면 좋겠어",
+        "해야 돼": "해보는 게 좋겠어",
+    }
+    for source, target in replacements.items():
+        revised = revised.replace(source, target)
+    revised = re.sub(r"^(나는|나도)\s+", "돌이켜보면 나는 ", revised)
+    revised = re.sub(r"했어$", "했단다", revised)
+    revised = re.sub(r"였어$", "였단다", revised)
+    revised = re.sub(r"했지$", "했단다", revised)
+    revised = re.sub(r"거야$", "것이란다", revised)
+    revised = re.sub(r"돼$", "하는 게 좋겠어", revised)
+    revised = re.sub(r"힘들어$", "힘든 순간이 있었단다", revised)
+    if normalized_text(text) in normalized_text(revised):
+        words = revised.split(" ", 1)
+        revised = f"내 경험을 돌아보면, {words[0]}에 대해서는 {words[1]}" if len(words) == 2 else "그때의 마음과 상황을 조금 더 차분히 돌아볼 필요가 있단다"
+    return revised
+
+
+def polish_local(text: str, question: str, tone: str) -> str:
+    text = rewrite_local_core(text)
+    light_markers = ("음식", "간식", "노래", "취미", "여행", "학창", "웃", "계절", "월급", "닮", "쉬는 날")
     if any(marker in question for marker in light_markers):
-        return f"{text}."
-
+        base = f"{text.rstrip('. ')}."
+        if tone == "friendly":
+            return f"{base} 생각만 해도 웃음이 나네."
+        if tone == "calm":
+            return f"돌이켜보면 {base}"
+        return base
     replacements = {
         "그냥 버텼": "하루씩 견뎌냈",
         "별거 아니": "지나고 보니 그 시간도 삶의 한 부분이었",
@@ -1320,18 +1579,26 @@ def polish_local(text: str, question: str) -> str:
     }
     for source, target in replacements.items():
         text = text.replace(source, target)
-    if len(text) < 28:
+    if len(text) < 28 and tone != "firm":
         text = f"나도 처음에는 쉽지 않았단다. {text}"
-    return f"{text}. 지금은 앞이 보이지 않더라도, 네가 지나온 시간은 사라지지 않고 분명 다음 걸음을 내딛는 힘이 되어 줄 거야."
+    endings = {
+        "firm": "중요한 건 피하지 않고 네가 선택한 일에 책임을 다하는 거야.",
+        "warm": "지금은 앞이 보이지 않더라도 네 마음을 이해하고 늘 곁에서 응원할게.",
+        "calm": "서두르지 말고 상황을 하나씩 살펴보면 다음 길을 찾을 수 있을 거야.",
+        "practical": "우선 오늘 할 수 있는 가장 작은 일부터 하나 정해 보면 좋겠어.",
+        "friendly": "너무 혼자 끙끙대지 말고 편할 때 같이 이야기해 보자.",
+    }
+    return f"{text}. {endings[tone]}"
 
 
 def polish_answer(body: AnswerRequest) -> dict:
-    ai_result = ai_polish(body)
-    polished, source = ai_result if ai_result else (None, "local")
+    suggestion = ai_polish(body)
     return {
-        "polished": polished or polish_local(body.answer, body.question),
+        "polished": suggestion["polished"] if suggestion else polish_local(body.answer, body.question, body.tone),
+        "recommendation_reason": suggestion["recommendation_reason"] if suggestion else f"{TONE_REASONS[body.tone]} 맞춤법과 문장 호응도 함께 자연스럽게 정리했어요.",
         "original": body.answer,
-        "source": source,
+        "tone": body.tone,
+        "source": suggestion["source"] if suggestion else "local",
     }
 `````
 
@@ -1535,7 +1802,7 @@ if BACKEND_DIR not in sys.path:
 from main import app
 from schemas.answer import AnswerRequest
 from schemas.question import QuestionRequest
-from services.answer_service import polish_answer
+from services.answer_service import normalized_text, polish_answer
 from services.question_service import transform_question
 
 
@@ -1553,6 +1820,8 @@ class ApiContractTest(unittest.TestCase):
         self.assertIn("/api/health", paths)
         self.assertIn("/api/questions/transform", paths)
         self.assertIn("/api/answers/polish", paths)
+        self.assertIn("/api/families/{family_id}/invite", paths)
+        self.assertIn("/api/families/{family_id}/invites", paths)
 
     def test_question_local_fallback_contract(self):
         result = transform_question(
@@ -1565,6 +1834,12 @@ class ApiContractTest(unittest.TestCase):
         self.assertIn(result["target_question"], result["questions"])
         self.assertEqual(result["question"], result["questions"][0])
 
+    def test_direct_question_contains_only_the_target(self):
+        result = transform_question(
+            QuestionRequest(worry="진로를 어떻게 정했는지 궁금해", emotion="불안", mode="direct")
+        )
+        self.assertEqual(result["questions"], [result["target_question"]])
+
     def test_answer_local_fallback_contract(self):
         original = "나도 처음엔 막막했지만 그냥 버텼어"
         result = polish_answer(
@@ -1573,6 +1848,16 @@ class ApiContractTest(unittest.TestCase):
         self.assertEqual(result["source"], "local")
         self.assertEqual(result["original"], original)
         self.assertTrue(result["polished"])
+        self.assertTrue(result["recommendation_reason"])
+        self.assertEqual(result["tone"], "warm")
+        self.assertNotIn(normalized_text(original), normalized_text(result["polished"]))
+
+    def test_answer_tone_changes_local_suggestion(self):
+        original = "그렇게 하면 안 돼. 정신 차리고 제대로 해."
+        warm = polish_answer(AnswerRequest(answer=original, question="실패했을 때 어떻게 견뎠나요?", tone="warm"))
+        practical = polish_answer(AnswerRequest(answer=original, question="실패했을 때 어떻게 견뎠나요?", tone="practical"))
+        self.assertNotEqual(warm["polished"], practical["polished"])
+        self.assertNotIn(normalized_text(original), normalized_text(warm["polished"]))
 
 
 if __name__ == "__main__":
@@ -1720,6 +2005,83 @@ class FamilyFlowTest(unittest.TestCase):
 
         updated_library = self.client.get(f"/api/answers?family_id={family_id}", headers=child_headers)
         self.assertEqual(updated_library.json()[0]["thanks_count"], 1)
+
+    def test_detailed_roles_restore_family_invite_and_final_answer(self):
+        child = self.register_and_login("hero-child@example.com", "가입 이름")
+        parent = self.register_and_login("hero-parent@example.com", "가입 이름")
+        child_headers = self.auth(child["access_token"])
+        parent_headers = self.auth(parent["access_token"])
+
+        created = self.client.post(
+            "/api/families",
+            headers=child_headers,
+            json={"name": "영웅 가족", "role": "son", "nickname": "씩씩이"},
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        family_id = created.json()["id"]
+        self.assertEqual(created.json()["members"][0]["name"], "씩씩이")
+
+        empty_invite = self.client.get(f"/api/families/{family_id}/invite", headers=child_headers)
+        self.assertEqual(empty_invite.status_code, 200, empty_invite.text)
+        self.assertIsNone(empty_invite.json())
+        invite = self.client.post(f"/api/families/{family_id}/invites", headers=child_headers)
+        self.assertEqual(invite.status_code, 200, invite.text)
+        active_invite = self.client.get(f"/api/families/{family_id}/invite", headers=child_headers)
+        self.assertEqual(active_invite.json()["invite_code"], invite.json()["invite_code"])
+
+        joined = self.client.post(
+            "/api/families/join",
+            headers=parent_headers,
+            json={"invite_code": invite.json()["invite_code"], "role": "mother", "nickname": "다정한 엄마"},
+        )
+        self.assertEqual(joined.status_code, 200, joined.text)
+        self.assertEqual({member["role"] for member in joined.json()["members"]}, {"son", "mother"})
+
+        restored = self.client.post(
+            "/api/auth/login",
+            json={"email": "hero-child@example.com", "password": "pass1234"},
+        )
+        self.assertEqual(restored.status_code, 200, restored.text)
+        self.assertEqual(restored.json()["family"]["id"], family_id)
+
+        delivery = self.client.post(
+            "/api/questions/deliveries",
+            headers=child_headers,
+            json={"family_id": family_id, "emotion": "불안", "worry": "진로가 막막해요.", "mode": "direct"},
+        )
+        self.assertEqual(delivery.status_code, 201, delivery.text)
+        self.assertTrue(delivery.json()["should_notify"])
+        self.assertEqual(len(delivery.json()["questions"]), 1)
+
+        polished = self.client.post(
+            "/api/answers/polish",
+            headers=parent_headers,
+            json={"question": delivery.json()["questions"][0], "answer": "나도 처음엔 막막했어.", "tone": "practical"},
+        )
+        self.assertEqual(polished.status_code, 200, polished.text)
+        self.assertEqual(polished.json()["tone"], "practical")
+        self.assertTrue(polished.json()["recommendation_reason"])
+
+        final_answer = "오늘 할 수 있는 작은 일부터 하나씩 시작해 보렴."
+        saved = self.client.post(
+            f"/api/answers/deliveries/{delivery.json()['id']}",
+            headers=parent_headers,
+            json={
+                "question": delivery.json()["questions"][0],
+                "answer": "나도 처음엔 막막했어.",
+                "final_answer": final_answer,
+                "tone": "practical",
+            },
+        )
+        self.assertEqual(saved.status_code, 201, saved.text)
+        self.assertEqual(saved.json()["polished_answer"], final_answer)
+
+        child_library = self.client.get(f"/api/answers?family_id={family_id}", headers=child_headers)
+        parent_library = self.client.get(f"/api/answers?family_id={family_id}", headers=parent_headers)
+        self.assertEqual(child_library.status_code, 200, child_library.text)
+        self.assertEqual(parent_library.status_code, 200, parent_library.text)
+        self.assertEqual(child_library.json()[0]["original_question"], delivery.json()["target_question"])
+        self.assertEqual(parent_library.json()[0]["respondent_id"], parent["user"]["id"])
 
 
 if __name__ == "__main__":
@@ -3195,6 +3557,7 @@ button { cursor: pointer; }
 .role-picker input { position: absolute; opacity: 0; }
 .role-picker label > span { color: var(--ink); font: 700 14px var(--serif); }
 .role-picker small { color: var(--muted); font-size: 9px; }
+.input-count { justify-self: end; color: #aa9a90; font-size: 9px; }
 .onboarding-switch { width: 100%; margin-top: 23px; color: var(--terra); }
 
 /* 로그인 후 공통 화면 */
@@ -3313,6 +3676,67 @@ button { cursor: pointer; }
 .raw { margin-top: 16px; padding: 14px 16px; border-radius: 11px; background: var(--paper-deep); }
 .raw b { color: var(--terra); font-size: 8px; }
 .raw p { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+
+/* 가족 패널 */
+.modal-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgba(52,37,31,.42); backdrop-filter: blur(9px); animation: reveal .25s ease both; }
+.family-panel { position: relative; width: min(500px, 100%); max-height: min(760px, calc(100vh - 40px)); overflow-y: auto; padding: 40px; border: 1px solid rgba(255,255,255,.72); border-radius: 25px; color: var(--ink); background: rgba(255,250,245,.96); box-shadow: 0 34px 100px rgba(50,28,18,.28); }
+.family-panel h2 { margin: 4px 0 8px; font: 700 29px var(--serif); letter-spacing: -.04em; }
+.family-panel > p { margin: 0 0 26px; color: var(--muted); font-size: 11px; line-height: 1.7; }
+.modal-close { position: absolute; top: 18px; right: 20px; width: 34px; height: 34px; border: 0; border-radius: 50%; color: var(--muted); background: var(--paper-deep); font-size: 21px; }
+.family-members { padding: 21px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.48); }
+.family-members h3 { margin: 0 0 13px; font: 700 13px var(--serif); }
+.family-members h3 span { color: var(--terra); font-size: 9px; }
+.family-members > div { display: grid; gap: 8px; }
+.family-members article { padding: 11px 13px; display: grid; grid-template-columns: 55px 1fr auto; align-items: center; gap: 9px; border-radius: 11px; background: var(--paper); }
+.family-members article.me { background: rgba(232,127,86,.1); }
+.family-members article b { color: var(--terra); font-size: 9px; }
+.family-members article span { min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 700 11px var(--serif); white-space: nowrap; }
+.family-members article em { padding: 3px 6px; border-radius: 999px; color: var(--sage); background: rgba(117,128,108,.12); font-size: 8px; font-style: normal; }
+.invite-divider { margin: 27px 0 17px; display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 9px; }
+.invite-divider::before, .invite-divider::after { content: ''; height: 1px; flex: 1; background: var(--line); }
+.invite-ready { display: grid; justify-items: center; gap: 10px; }
+.invite-code { padding: 15px 23px; border-radius: 13px; color: var(--terra-dark); background: var(--paper-deep); font: 700 22px/1 var(--serif); letter-spacing: .16em; user-select: all; }
+.invite-ready small, .invite-empty { color: var(--muted); font-size: 9px; }
+.invite-ready button, .invite-create { height: 43px; padding: 0 18px; border: 0; border-radius: 11px; color: #fff; background: var(--terra); font-size: 10px; font-weight: 700; }
+.invite-create { width: 100%; }
+.invite-empty { padding: 18px; text-align: center; }
+.invite-message { margin: 14px 0 0 !important; padding: 9px 11px; border-radius: 9px; color: var(--terra-dark) !important; background: rgba(232,127,86,.1); text-align: center; }
+
+/* 질문함과 답변 문체 */
+.answer-nudge { margin: 30px 0 -12px; padding: 16px 19px; border: 1px solid rgba(182,95,61,.18); border-radius: 14px; background: rgba(255,250,245,.72); }
+.answer-nudge b { color: var(--terra-dark); font: 700 12px var(--serif); }
+.answer-nudge p { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+.delivery-inbox { margin-top: 28px; padding: 22px; border: 1px solid rgba(255,255,255,.75); border-radius: 20px; background: rgba(255,250,244,.66); box-shadow: 0 12px 38px rgba(74,42,26,.07); }
+.delivery-inbox-head { margin-bottom: 13px; display: flex; justify-content: space-between; font: 700 12px var(--serif); }
+.delivery-inbox-head span { color: var(--terra); font-size: 9px; }
+.delivery-inbox > div:last-child { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 9px; }
+.delivery-inbox button { padding: 14px; display: grid; gap: 5px; text-align: left; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: rgba(255,255,255,.58); }
+.delivery-inbox button.selected { border-color: var(--terra); background: rgba(232,127,86,.09); }
+.delivery-inbox button > span { color: var(--terra); font-size: 8px; font-weight: 700; }
+.delivery-inbox button > b { overflow: hidden; font: 700 11px/1.45 var(--serif); text-overflow: ellipsis; white-space: nowrap; }
+.delivery-inbox button > small { color: var(--muted); font-size: 8px; }
+.parent-answer-paper { margin-top: 16px; }
+.tone-picker { margin: 20px 0; padding: 20px; border-radius: 16px; background: var(--paper-deep); }
+.tone-picker > div:first-child { display: grid; gap: 4px; margin-bottom: 13px; }
+.tone-picker > div:first-child b { font: 700 12px var(--serif); }
+.tone-picker > div:first-child span { color: var(--muted); font-size: 9px; }
+.tone-picker > div:last-child { display: grid; grid-template-columns: repeat(auto-fit,minmax(135px,1fr)); gap: 7px; }
+.tone-picker button { padding: 11px; display: grid; gap: 4px; text-align: left; border: 1px solid rgba(91,61,47,.12); border-radius: 10px; color: var(--ink); background: rgba(255,255,255,.55); }
+.tone-picker button.selected { border-color: var(--terra); color: var(--terra-dark); background: #fffaf5; box-shadow: 0 6px 18px rgba(91,61,47,.08); }
+.tone-picker button b { font: 700 10px var(--serif); }
+.tone-picker button small { color: var(--muted); font-size: 8px; line-height: 1.45; }
+.recommendation-reason { display: block; margin: -8px 0 18px; padding: 11px 13px; border-left: 2px solid var(--sage); color: var(--muted); background: rgba(117,128,108,.08); font-size: 9px; line-height: 1.7; }
+.question-history { margin: 17px 0 10px; padding: 13px 15px; border-radius: 11px; background: var(--paper-deep); }
+.question-history b { color: var(--terra); font-size: 8px; }
+.question-history p { margin: 5px 0 0; font: 700 11px/1.65 var(--serif); }
+.question-history small { display: block; margin-top: 6px; color: var(--muted); font-size: 8px; }
+.reference-wisdom { margin-top: 18px; padding: 18px; border: 1px solid rgba(117,128,108,.18); border-radius: 14px; background: rgba(117,128,108,.06); }
+.reference-wisdom > div { display: flex; justify-content: space-between; gap: 10px; }
+.reference-wisdom > div b { font: 700 10px var(--serif); }
+.reference-wisdom > div span { color: var(--muted); font-size: 8px; }
+.reference-wisdom article { margin-top: 10px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,.62); }
+.reference-wisdom article p { margin: 0 0 5px; font: 400 11px/1.7 var(--serif); }
+.reference-wisdom article time { color: var(--muted); font-size: 8px; }
 .app footer { padding: 38px 20px 44px; border-top: 1px solid var(--line); text-align: center; background: rgba(232,216,199,.58); }
 .app footer p { margin: 7px 0 13px; color: var(--muted); font: 11px var(--serif); }
 .app footer small { color: #a09187; font-size: 7px; }
@@ -3360,8 +3784,6 @@ button { cursor: pointer; }
   .question blockquote { font-size: 18px; }
   .wisdom { padding: 27px 22px 23px; }
   .app footer { padding-bottom: 90px; }
-}
-
 @media (max-width: 440px) {
   .role-picker { grid-template-columns: 1fr; }
   .page h1 { font-size: 31px; }
@@ -3369,6 +3791,8 @@ button { cursor: pointer; }
   .date { display: none; }
   .actions { grid-template-columns: 1fr !important; }
   .wisdom-foot { align-items: flex-start; flex-direction: column; gap: 11px; }
+  .family-panel { padding: 32px 21px; }
+  .tone-picker > div:last-child { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3388,10 +3812,27 @@ import Header from './components/Header'
 import ChildPage from './components/ChildPage'
 import ParentPage from './components/ParentPage'
 import LibraryPage from './components/LibraryPage'
+import FamilyPanel from './components/FamilyPanel'
 import { Icon } from './utils/icons'
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 const heroBackgrounds = [heroEnvelopeEyes, heroLetter]
+const NICKNAME_MAX_LENGTH = 12
+const roleOptions = [
+  { value: 'son', label: '아들', description: '마음을 질문으로 보내요' },
+  { value: 'daughter', label: '딸', description: '마음을 질문으로 보내요' },
+  { value: 'father', label: '아빠', description: '경험을 답장으로 남겨요' },
+  { value: 'mother', label: '엄마', description: '경험을 답장으로 남겨요' },
+]
+const roleLabels = { son: '아들', daughter: '딸', father: '아빠', mother: '엄마', child: '자녀', parent: '부모' }
+const toneOptions = [
+  { value: 'firm', title: '단호하고 분명하게', description: '기준과 책임을 또렷하게 전해요.' },
+  { value: 'warm', title: '따뜻하고 공감하게', description: '이해와 온기를 먼저 전해요.' },
+  { value: 'calm', title: '차분하게 설명하기', description: '이유를 순서 있게 말해요.' },
+  { value: 'practical', title: '현실적인 해결 중심', description: '실행 가능한 행동에 집중해요.' },
+  { value: 'friendly', title: '친근하고 편안하게', description: '평소 대화처럼 전해요.' },
+]
+const isChildRole = (role) => ['son', 'daughter', 'child'].includes(role)
 
 const formatDate = (dateString) => {
   if (!dateString) return ''
@@ -3413,14 +3854,14 @@ export default function App() {
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [authName, setAuthName] = useState('')
-  const [authRole, setAuthRole] = useState('child')
+  const [authRole, setAuthRole] = useState('son')
   const [inviteCodeInput, setInviteCodeInput] = useState('')
   const [familyNameInput, setFamilyNameInput] = useState('')
-  const [inviteCode, setInviteCode] = useState('')
+  const [familyAliasInput, setFamilyAliasInput] = useState('')
 
   const [apiStatus, setApiStatus] = useState('checking')
   const [aiReady, setAiReady] = useState(false)
-  const [screen, setScreen] = useState(() => (userRole === 'parent' ? 'parent' : 'child'))
+  const [screen, setScreen] = useState(() => (isChildRole(userRole) ? 'child' : 'parent'))
   const [emotion, setEmotion] = useState('지침')
   const [worry, setWorry] = useState('')
   const [mode, setMode] = useState('stealth')
@@ -3430,8 +3871,14 @@ export default function App() {
   const [selectedQuestion, setSelectedQuestion] = useState('')
   const [answer, setAnswer] = useState('')
   const [polished, setPolished] = useState('')
+  const [recommendationReason, setRecommendationReason] = useState('')
+  const [answerTone, setAnswerTone] = useState('warm')
   const [library, setLibrary] = useState([])
   const [openRaw, setOpenRaw] = useState(null)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteData, setInviteData] = useState(null)
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteMessage, setInviteMessage] = useState('')
 
   const [loading, setLoading] = useState(false)
   const [notice, setNotice] = useState('')
@@ -3439,36 +3886,79 @@ export default function App() {
   const [heroIndex, setHeroIndex] = useState(0)
   const timer = useRef()
 
+  const membership = family?.members?.find((member) => member.user_id === user?.id)
+  const currentRole = membership?.role || userRole
+  const childUser = isChildRole(currentRole)
+  const notificationCount = pendingDeliveries.filter((delivery) => delivery.should_notify).length
+
   const authHeaders = useCallback(() => ({
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }), [token])
 
   const go = (next) => {
+    if (next === 'child' && !childUser) return
+    if (next === 'parent' && childUser) return
     setScreen(next)
     setNotice('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const createInvite = async () => {
-    setNotice('')
+  const openInvitePanel = async () => {
+    setInviteOpen(true)
+    setInviteLoading(true)
+    setInviteMessage('')
     try {
-      const res = await fetch(`${API}/api/families/invites`, {
-        method: 'POST',
-        headers: authHeaders(),
-      })
+      const [familyRes, inviteRes] = await Promise.all([
+        fetch(`${API}/api/families/${family.id}`, { headers: authHeaders() }),
+        fetch(`${API}/api/families/${family.id}/invite`, { headers: authHeaders() }),
+      ])
+      if (!familyRes.ok || !inviteRes.ok) {
+        const error = await (!familyRes.ok ? familyRes : inviteRes).json()
+        throw new Error(error.detail || '가족 정보를 확인하지 못했습니다.')
+      }
+      const latestFamily = await familyRes.json()
+      setFamily(latestFamily)
+      localStorage.setItem('seuljjeock-family', JSON.stringify(latestFamily))
+      setInviteData(await inviteRes.json())
+    } catch (err) {
+      setInviteMessage(err.message)
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
+  const createInvite = async () => {
+    setInviteLoading(true)
+    setInviteMessage('')
+    try {
+      const res = await fetch(`${API}/api/families/${family.id}/invites`, { method: 'POST', headers: authHeaders() })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || '초대 코드 생성 실패')
-      setInviteCode(data.invite_code)
-      try {
-        await navigator.clipboard.writeText(data.invite_code)
-        setNotice(`초대 코드 ${data.invite_code}를 복사했습니다.`)
-      } catch {
-        setNotice(`초대 코드: ${data.invite_code}`)
-      }
+      setInviteData(data)
+      setInviteMessage('새 가족에게 이 코드를 공유해 주세요.')
     } catch (err) {
-      setNotice(err.message)
+      setInviteMessage(err.message)
+    } finally {
+      setInviteLoading(false)
     }
+  }
+
+  const copyInvite = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteData.invite_code)
+      setInviteMessage('초대 코드를 복사했습니다.')
+    } catch {
+      setInviteMessage('복사하지 못했습니다. 코드를 직접 선택해 주세요.')
+    }
+  }
+
+  const chooseDelivery = (delivery) => {
+    setCurrentDelivery(delivery)
+    setSelectedQuestion(delivery.questions?.[0] || delivery.target_question)
+    setAnswer('')
+    setPolished('')
+    setRecommendationReason('')
   }
 
   useEffect(() => {
@@ -3510,8 +4000,9 @@ export default function App() {
         const deliveries = await qRes.json()
         setPendingDeliveries(deliveries)
         if (deliveries.length > 0) {
-          setCurrentDelivery(deliveries[0])
-          setSelectedQuestion(deliveries[0].questions[0] || deliveries[0].target_question)
+          const active = deliveries.find((delivery) => delivery.id === currentDelivery?.id) || deliveries[0]
+          setCurrentDelivery(active)
+          setSelectedQuestion((selected) => active.questions.includes(selected) ? selected : (active.questions[0] || active.target_question))
         } else {
           setCurrentDelivery(null)
           setSelectedQuestion('')
@@ -3525,14 +4016,17 @@ export default function App() {
     } catch {
       setNotice('서버 데이터를 가져오는 중 오류가 발생했습니다.')
     }
-  }, [authHeaders, family, token])
+  }, [authHeaders, currentDelivery?.id, family, token])
 
   useEffect(() => {
     if (token && family?.id) {
       // 서버 상태를 화면 진입 시 동기화해야 하므로 의도적으로 effect에서 갱신합니다.
       // oxlint-disable-next-line react-hooks/set-state-in-effect
       refreshData()
+      const interval = setInterval(refreshData, 10000)
+      return () => clearInterval(interval)
     }
+    return undefined
   }, [family?.id, refreshData, screen, token])
 
   const handleAuthSubmit = async (e) => {
@@ -3552,8 +4046,21 @@ export default function App() {
         setUser(data.user)
         localStorage.setItem('seuljjeock-token', data.access_token)
         localStorage.setItem('seuljjeock-user', JSON.stringify(data.user))
-        setNotice(`${data.user.name}님 환영합니다! 가족 그룹을 연결해 주세요.`)
-        setAuthMode('family_join')
+        if (data.family) {
+          const savedMembership = data.family.members.find((member) => member.user_id === data.user.id)
+          const savedRole = savedMembership?.role || 'child'
+          setFamily(data.family)
+          setUserRole(savedRole)
+          localStorage.setItem('seuljjeock-family', JSON.stringify(data.family))
+          localStorage.setItem('seuljjeock-role', savedRole)
+          setScreen(isChildRole(savedRole) ? 'child' : 'parent')
+          setNotice(`${data.user.name}님, 다시 오신 것을 환영합니다!`)
+        } else {
+          setFamily(null)
+          localStorage.removeItem('seuljjeock-family')
+          setNotice(`${data.user.name}님 환영합니다! 가족 그룹을 연결해 주세요.`)
+          setAuthMode('family_join')
+        }
       } else if (authMode === 'register') {
         const displayName = authName.trim()
         const res = await fetch(`${API}/api/auth/register`, {
@@ -3569,30 +4076,36 @@ export default function App() {
         const res = await fetch(`${API}/api/families`, {
           method: 'POST',
           headers: authHeaders(),
-          body: JSON.stringify({ name: familyNameInput, role: authRole }),
+          body: JSON.stringify({ name: familyNameInput, role: authRole, nickname: familyAliasInput.trim() }),
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.detail || '가족 생성 실패')
         setFamily(data)
         setUserRole(authRole)
+        const renamedUser = { ...user, name: familyAliasInput.trim() }
+        setUser(renamedUser)
         localStorage.setItem('seuljjeock-family', JSON.stringify(data))
         localStorage.setItem('seuljjeock-role', authRole)
+        localStorage.setItem('seuljjeock-user', JSON.stringify(renamedUser))
         setNotice(`'${data.name}' 가족이 연결되었습니다!`)
-        go(authRole === 'parent' ? 'parent' : 'child')
+        setScreen(isChildRole(authRole) ? 'child' : 'parent')
       } else if (authMode === 'family_join') {
         const res = await fetch(`${API}/api/families/join`, {
           method: 'POST',
           headers: authHeaders(),
-          body: JSON.stringify({ invite_code: inviteCodeInput, role: authRole }),
+          body: JSON.stringify({ invite_code: inviteCodeInput, role: authRole, nickname: familyAliasInput.trim() }),
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.detail || '가족 참여 실패')
         setFamily(data)
         setUserRole(authRole)
+        const renamedUser = { ...user, name: familyAliasInput.trim() }
+        setUser(renamedUser)
         localStorage.setItem('seuljjeock-family', JSON.stringify(data))
         localStorage.setItem('seuljjeock-role', authRole)
+        localStorage.setItem('seuljjeock-user', JSON.stringify(renamedUser))
         setNotice(`'${data.name}' 가족에 참여하셨습니다!`)
-        go(authRole === 'parent' ? 'parent' : 'child')
+        setScreen(isChildRole(authRole) ? 'child' : 'parent')
       }
     } catch (err) {
       setNotice(err.message)
@@ -3610,10 +4123,14 @@ export default function App() {
     setUser(null)
     setFamily(null)
     setUserRole('child')
-    setInviteCode('')
+    setAuthRole('son')
+    setInviteOpen(false)
+    setInviteData(null)
+    setInviteMessage('')
     setPendingDeliveries([])
     setLibrary([])
     setCurrentDelivery(null)
+    setFamilyAliasInput('')
     setAuthMode('login')
     setNotice('로그아웃되었습니다.')
   }
@@ -3632,9 +4149,8 @@ export default function App() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || '질문 전달 실패')
       setWorry('')
-      setNotice('부모님이 부담 느끼지 않도록 4개의 일상 질문 사이에 섞어 조용히 보냈어요.')
+      setNotice(mode === 'direct' ? '익명화한 질문 한 장을 바로 전했어요.' : '4개의 일상 질문 사이에 섞어 조용히 보냈어요.')
       await refreshData()
-      go('library')
     } catch (err) {
       setNotice(err.message)
     } finally {
@@ -3660,11 +4176,12 @@ export default function App() {
       const res = await fetch(`${API}/api/answers/polish`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ answer, question: selectedQuestion }),
+        body: JSON.stringify({ answer, question: selectedQuestion, tone: answerTone }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || '답변 다듬기 실패')
       setPolished(data.polished)
+      setRecommendationReason(data.recommendation_reason || '')
     } catch (err) {
       setNotice(err.message)
     } finally {
@@ -3672,19 +4189,22 @@ export default function App() {
     }
   }
 
-  async function saveAnswer() {
+  async function saveAnswer(version = 'polished') {
     if (!currentDelivery?.id) return setNotice('답변할 대상 질문이 없습니다.')
+    const finalAnswer = version === 'original' ? answer : polished
+    if (!finalAnswer.trim()) return setNotice('보낼 답변을 먼저 작성해 주세요.')
     setLoading(true)
     try {
       const res = await fetch(`${API}/api/answers/deliveries/${currentDelivery.id}`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ question: selectedQuestion, answer }),
+        body: JSON.stringify({ question: selectedQuestion, answer, final_answer: finalAnswer, tone: answerTone }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || '답변 저장 실패')
       setAnswer('')
       setPolished('')
+      setRecommendationReason('')
       setNotice('부모님의 소중한 경험이 가족 서재에 기록되었습니다.')
       await refreshData()
       go('library')
@@ -3859,18 +4379,28 @@ export default function App() {
             )}
 
             <fieldset className="role-picker">
-              <legend>나의 역할</legend>
-              <label className={authRole === 'child' ? 'selected' : ''}>
-                <input type="radio" name="role" value="child" checked={authRole === 'child'} onChange={() => setAuthRole('child')} />
-                <span>자녀</span>
-                <small>마음을 질문으로 보내요</small>
-              </label>
-              <label className={authRole === 'parent' ? 'selected' : ''}>
-                <input type="radio" name="role" value="parent" checked={authRole === 'parent'} onChange={() => setAuthRole('parent')} />
-                <span>부모</span>
-                <small>경험을 답장으로 남겨요</small>
-              </label>
+              <legend>가족 안에서 나의 역할</legend>
+              {roleOptions.map((role) => (
+                <label key={role.value} className={authRole === role.value ? 'selected' : ''}>
+                  <input type="radio" name="role" value={role.value} checked={authRole === role.value} onChange={() => setAuthRole(role.value)} />
+                  <span>{role.label}</span>
+                  <small>{role.description}</small>
+                </label>
+              ))}
             </fieldset>
+
+            <label>
+              <span>가족에게 보일 별칭</span>
+              <input
+                type="text"
+                placeholder="예: 다정한 엄마, 씩씩이"
+                value={familyAliasInput}
+                onChange={(e) => setFamilyAliasInput(e.target.value)}
+                maxLength={NICKNAME_MAX_LENGTH}
+                required
+              />
+              <small className="input-count">{familyAliasInput.length}/{NICKNAME_MAX_LENGTH}자</small>
+            </label>
 
             {notice && <p className="auth-notice">{notice}</p>}
             <button className="auth-submit" type="submit" disabled={loading}>
@@ -3893,32 +4423,50 @@ export default function App() {
   return (
     <div className="app">
       <Header
-        token={token} family={family} user={user} userRole={userRole} screen={screen}
-        go={go} pendingCount={pendingDeliveries.length} apiStatus={apiStatus} aiReady={aiReady}
-        onLogout={handleLogout} onCreateInvite={createInvite} inviteCode={inviteCode}
+        token={token} family={family} user={user} userRole={currentRole} screen={screen}
+        go={go} pendingCount={notificationCount} apiStatus={apiStatus} aiReady={aiReady}
+        onLogout={handleLogout} onOpenFamily={openInvitePanel}
       />
+
+      {inviteOpen && (
+        <FamilyPanel
+          family={family}
+          user={user}
+          roleLabels={roleLabels}
+          inviteData={inviteData}
+          loading={inviteLoading}
+          message={inviteMessage}
+          formatDate={formatDate}
+          onClose={() => setInviteOpen(false)}
+          onCreateInvite={createInvite}
+          onCopyInvite={copyInvite}
+        />
+      )}
 
       {notice && <p className="notice">{notice}</p>}
 
-      {token && family && userRole === 'child' && screen === 'child' && (
+      {token && family && childUser && screen === 'child' && (
         <ChildPage
           emotion={emotion} setEmotion={setEmotion} worry={worry} setWorry={setWorry}
           mode={mode} setMode={setMode} transformAndSend={transformAndSend} loading={loading}
         />
       )}
 
-      {token && family && userRole === 'parent' && screen === 'parent' && (
+      {token && family && !childUser && screen === 'parent' && (
         <ParentPage
           pendingDeliveries={pendingDeliveries} currentDelivery={currentDelivery}
+          chooseDelivery={chooseDelivery}
           selectedQuestion={selectedQuestion} setSelectedQuestion={setSelectedQuestion}
           recording={recording} record={record} answer={answer} setAnswer={setAnswer}
           polished={polished} setPolished={setPolished} polish={polish} saveAnswer={saveAnswer}
+          recommendationReason={recommendationReason} setRecommendationReason={setRecommendationReason}
+          answerTone={answerTone} setAnswerTone={setAnswerTone} toneOptions={toneOptions}
           loading={loading}
         />
       )}
 
       {token && family && screen === 'library' && (
-        <LibraryPage library={library} formatDate={formatDate} react={react} openRaw={openRaw} setOpenRaw={setOpenRaw} />
+        <LibraryPage library={library} formatDate={formatDate} react={react} openRaw={openRaw} setOpenRaw={setOpenRaw} childUser={childUser} />
       )}
 
       <footer>
@@ -4153,30 +4701,77 @@ export default function ChildPage({
 }
 `````
 
+frontend/src/components/FamilyPanel.jsx
+`````
+export default function FamilyPanel({
+  family, user, roleLabels, inviteData, loading, message, formatDate,
+  onClose, onCreateInvite, onCopyInvite,
+}) {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <section className="family-panel" role="dialog" aria-modal="true" aria-labelledby="family-panel-title" onClick={(event) => event.stopPropagation()}>
+        <button className="modal-close" type="button" aria-label="닫기" onClick={onClose}>×</button>
+        <div className="eyebrow">● 가족 연결</div>
+        <h2 id="family-panel-title">{family.name}</h2>
+        <p>함께 연결된 가족을 확인하고 새 구성원을 초대할 수 있어요.</p>
+
+        <div className="family-members">
+          <h3>우리 가족 <span>{family.members?.length || 0}명</span></h3>
+          <div>
+            {family.members?.map((member) => (
+              <article key={member.user_id} className={member.user_id === user.id ? 'me' : ''}>
+                <b>{roleLabels[member.role] || '가족'}</b>
+                <span>{member.name}</span>
+                {member.user_id === user.id && <em>나</em>}
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className="invite-divider"><span>가족 초대 코드</span></div>
+        {loading ? (
+          <div className="invite-empty">초대 코드를 확인하고 있어요…</div>
+        ) : inviteData ? (
+          <div className="invite-ready">
+            <div className="invite-code">{inviteData.invite_code}</div>
+            <small>{formatDate(inviteData.expires_at)}까지 사용할 수 있어요.</small>
+            <button type="button" onClick={onCopyInvite}>코드 복사하기</button>
+          </div>
+        ) : (
+          <button className="invite-create" type="button" onClick={onCreateInvite}>초대 코드 만들기</button>
+        )}
+        {message && <p className="invite-message" role="status">{message}</p>}
+      </section>
+    </div>
+  )
+}
+`````
+
 frontend/src/components/Header.jsx
 `````
 import { Icon } from '../utils/icons'
 
 export default function Header({
   token, family, user, userRole, screen, go, pendingCount, apiStatus, aiReady,
-  onLogout, onCreateInvite, inviteCode
+  onLogout, onOpenFamily
 }) {
+  const childUser = ['son', 'daughter', 'child'].includes(userRole)
   return (
     <header>
-      <button className="brand" onClick={() => go(userRole === 'parent' ? 'parent' : 'child')}>
+      <button className="brand" onClick={() => go(childUser ? 'child' : 'parent')}>
         <b>슬쩍</b>
         <span>마음을 잇는 작은 질문</span>
       </button>
 
       {token && family && (
         <nav>
-          {userRole === 'child' && (
+          {childUser && (
             <button className={screen === 'child' ? 'on' : ''} onClick={() => go('child')}>
               마음 보내기
             </button>
           )}
 
-          {userRole === 'parent' && (
+          {!childUser && (
             <button className={screen === 'parent' ? 'on' : ''} onClick={() => go('parent')}>
               오늘의 문답 {pendingCount > 0 && `(${pendingCount})`}
             </button>
@@ -4206,8 +4801,7 @@ export default function Header({
             <span>
               {family?.name || '가족'} <b>{user.name[0]}</b>
             </span>
-            {inviteCode && <code>{inviteCode}</code>}
-            <button className="header-action" onClick={onCreateInvite}>초대</button>
+            <button className="header-action" onClick={onOpenFamily}>우리 가족</button>
             <button className="header-logout" onClick={onLogout} title="로그아웃" aria-label="로그아웃">
               <Icon type="logout" />
             </button>
@@ -4223,14 +4817,14 @@ frontend/src/components/LibraryPage.jsx
 `````
 import { Icon } from '../utils/icons'
 
-export default function LibraryPage({ library, formatDate, react, openRaw, setOpenRaw }) {
+export default function LibraryPage({ library, formatDate, react, openRaw, setOpenRaw, childUser }) {
   return (
     <main className="page library">
       <div className="hero">
         <div>
-          <div className="eyebrow">● 우리 가족 지혜 서재</div>
-          <h1>우리가 나눈 지혜들</h1>
-          <p className="lead">부모님의 경험과 온기가 담긴 답변들을 다시 읽고 간직할 수 있습니다.</p>
+          <div className="eyebrow">● 나의 지혜 서재</div>
+          <h1>{childUser ? '내 질문에 도착한 지혜' : '내가 남긴 지혜'}</h1>
+          <p className="lead">{childUser ? '내가 보낸 질문에 도착한 답변만 간직하는 개인 공간입니다.' : '내가 직접 남긴 답변만 모아 다시 읽을 수 있습니다.'}</p>
         </div>
         <div className="count">
           <Icon type="book" /><b>{library.length}</b><span>개의 이야기</span>
@@ -4247,7 +4841,11 @@ export default function LibraryPage({ library, formatDate, react, openRaw, setOp
                 <span>{item.emotion || '따뜻함'}</span>
                 <time>{formatDate(item.created_at)}</time>
               </div>
-              <small>질문: {item.question}</small>
+              <div className="question-history">
+                <b>{childUser ? '당시 내가 보낸 질문' : '내가 답한 질문'}</b>
+                <p>{item.original_question || item.question}</p>
+                {item.original_question && item.question !== item.original_question && <small>답변한 질문: {item.question}</small>}
+              </div>
               <blockquote>{item.polished_answer}</blockquote>
               <div className="author">
                 <b>{item.author_name ? item.author_name[0] : '가'}</b>
@@ -4265,6 +4863,17 @@ export default function LibraryPage({ library, formatDate, react, openRaw, setOp
               {openRaw === item.id && (
                 <div className="raw"><b>원래 건넨 말씀</b><p>{item.raw_answer}</p></div>
               )}
+              {childUser && item.reference_answers?.length > 0 && (
+                <aside className="reference-wisdom">
+                  <div><b>같은 질문에 대한 또 다른 지혜</b><span>다른 가족의 익명 답변</span></div>
+                  {item.reference_answers.map((reference, index) => (
+                    <article key={`${item.id}-reference-${index}`}>
+                      <p>{reference.polished_answer}</p>
+                      <time>{formatDate(reference.created_at)}</time>
+                    </article>
+                  ))}
+                </aside>
+              )}
             </article>
           ))
         )}
@@ -4279,17 +4888,19 @@ frontend/src/components/ParentPage.jsx
 import { Icon } from '../utils/icons'
 
 export default function ParentPage({
-  pendingDeliveries, currentDelivery, selectedQuestion, setSelectedQuestion,
+  pendingDeliveries, currentDelivery, chooseDelivery, selectedQuestion, setSelectedQuestion,
   recording, record, answer, setAnswer, polished, setPolished, polish, saveAnswer,
+  recommendationReason, setRecommendationReason, answerTone, setAnswerTone, toneOptions,
   loading
 }) {
+  const delayedCount = pendingDeliveries.filter((delivery) => delivery.mode === 'stealth' && delivery.should_notify).length
   return (
     <main className="page parent">
       <div className="hero">
         <div>
           <div className="eyebrow">● 오늘의 인생 문답</div>
-          <h1>자녀에게서 도착한<br />질문 묶음</h1>
-          <p className="lead">가족의 마음이 담긴 질문들입니다. 마음에 드는 질문을 골라 짧게 경험을 들려주세요.</p>
+          <h1>{currentDelivery?.mode === 'direct' ? '가족에게서 도착한' : '자녀에게서 도착한'}<br />{currentDelivery?.mode === 'direct' ? '단독 질문' : '질문 묶음'}</h1>
+          <p className="lead">가족의 마음이 담긴 질문입니다. 지나온 경험을 편하게 들려주세요.</p>
         </div>
         <div className="date">
           <span>DATE</span><b>{new Date().getDate()}</b><small>{new Date().getMonth() + 1}월</small>
@@ -4302,7 +4913,26 @@ export default function ParentPage({
           <p style={{ color: '#b0a197', fontSize: 13, marginTop: 6 }}>자녀가 마음을 담아 새 질문을 보내면 여기에 표시됩니다.</p>
         </div>
       ) : (
-        <div className="paper">
+        <>
+        {delayedCount > 0 && (
+          <div className="answer-nudge" role="status">
+            <b>답변을 기다리는 질문이 있어요</b>
+            <p>하루 넘게 기다린 질문 묶음이 {delayedCount}개 있습니다. 여유가 될 때 경험을 들려주세요.</p>
+          </div>
+        )}
+        <div className="delivery-inbox">
+          <div className="delivery-inbox-head"><b>도착한 문답</b><span>{pendingDeliveries.length}개</span></div>
+          <div>
+            {pendingDeliveries.map((delivery) => (
+              <button key={delivery.id} className={currentDelivery?.id === delivery.id ? 'selected' : ''} onClick={() => chooseDelivery(delivery)}>
+                <span>{delivery.mode === 'direct' ? '단독 질문' : '질문 묶음'}</span>
+                <b>{delivery.mode === 'direct' ? delivery.target_question : `${delivery.questions.length}개의 질문`}</b>
+                <small>{delivery.should_notify ? '답변을 기다리고 있어요' : '새로 도착했어요'}</small>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="paper parent-answer-paper">
           <div className="step">
             <span>01</span>
             <div><h2>답변할 질문 선택</h2><p>5개의 질문 중 이야기해 주고 싶은 질문을 선택해 주세요</p></div>
@@ -4322,6 +4952,25 @@ export default function ParentPage({
 
           <div className="answer">
             <div className="answer-head"><h2>나의 경험 들려주기</h2><span>텍스트 또는 음성</span></div>
+            <div className="tone-picker">
+              <div><b>전하고 싶은 말투</b><span>원래 의도에 가장 가까운 문체를 골라주세요.</span></div>
+              <div>
+                {toneOptions.map((tone) => (
+                  <button
+                    type="button"
+                    key={tone.value}
+                    className={answerTone === tone.value ? 'selected' : ''}
+                    onClick={() => {
+                      setAnswerTone(tone.value)
+                      setPolished('')
+                      setRecommendationReason('')
+                    }}
+                  >
+                    <b>{tone.title}</b><small>{tone.description}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className={`recorder ${recording ? 'live' : ''}`}>
               <button onClick={record}><Icon type="mic" /></button>
               <div><b>음성으로 들려주기</b><small>{recording ? '음성을 듣고 있습니다...' : '마이크 버튼을 눌러 말씀해 보세요'}</small></div>
@@ -4330,7 +4979,7 @@ export default function ParentPage({
 
             <div className="or">또는 직접 입력</div>
             <div className="field">
-              <textarea placeholder="그때를 돌이켜보면 어떤 마음이었는지 편하게 적어주세요." value={answer} onChange={(e) => setAnswer(e.target.value)} />
+              <textarea placeholder="그때를 돌이켜보면 어떤 마음이었는지 편하게 적어주세요." value={answer} onChange={(e) => { setAnswer(e.target.value); setPolished(''); setRecommendationReason('') }} />
             </div>
 
             <button className="action" disabled={loading || !answer.trim()} onClick={polish} style={{ marginTop: 15 }}>
@@ -4341,14 +4990,16 @@ export default function ParentPage({
               <div className="polished">
                 <div><span>자녀에게 전달될 다듬어진 문장</span></div>
                 <p>{polished}</p>
+                {recommendationReason && <small className="recommendation-reason">{recommendationReason}</small>}
                 <div className="actions">
-                  <button onClick={() => setPolished('')}>다시 쓰기</button>
-                  <button onClick={saveAnswer} disabled={loading}>이 답변으로 지혜 남기기</button>
+                  <button onClick={() => saveAnswer('original')} disabled={loading}>원문으로 남기기</button>
+                  <button onClick={() => saveAnswer('polished')} disabled={loading}>추천 문장으로 남기기</button>
                 </div>
               </div>
             )}
           </div>
         </div>
+        </>
       )}
     </main>
   )

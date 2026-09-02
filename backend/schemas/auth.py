@@ -1,5 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field
+from schemas.family import FamilyDetailResponse
 
 class UserRegisterRequest(BaseModel):
     email: EmailStr
@@ -22,3 +23,4 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+    family: FamilyDetailResponse | None = None

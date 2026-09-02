@@ -2,24 +2,25 @@ import { Icon } from '../utils/icons'
 
 export default function Header({
   token, family, user, userRole, screen, go, pendingCount, apiStatus, aiReady,
-  onLogout, onCreateInvite, inviteCode
+  onLogout, onOpenFamily
 }) {
+  const childUser = ['son', 'daughter', 'child'].includes(userRole)
   return (
     <header>
-      <button className="brand" onClick={() => go(userRole === 'parent' ? 'parent' : 'child')}>
+      <button className="brand" onClick={() => go(childUser ? 'child' : 'parent')}>
         <b>슬쩍</b>
         <span>마음을 잇는 작은 질문</span>
       </button>
 
       {token && family && (
         <nav>
-          {userRole === 'child' && (
+          {childUser && (
             <button className={screen === 'child' ? 'on' : ''} onClick={() => go('child')}>
               마음 보내기
             </button>
           )}
 
-          {userRole === 'parent' && (
+          {!childUser && (
             <button className={screen === 'parent' ? 'on' : ''} onClick={() => go('parent')}>
               오늘의 문답 {pendingCount > 0 && `(${pendingCount})`}
             </button>
@@ -49,8 +50,7 @@ export default function Header({
             <span>
               {family?.name || '가족'} <b>{user.name[0]}</b>
             </span>
-            {inviteCode && <code>{inviteCode}</code>}
-            <button className="header-action" onClick={onCreateInvite}>초대</button>
+            <button className="header-action" onClick={onOpenFamily}>우리 가족</button>
             <button className="header-logout" onClick={onLogout} title="로그아웃" aria-label="로그아웃">
               <Icon type="logout" />
             </button>

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from auth import create_access_token, get_password_hash, verify_password
 from database import get_db
-from models import User
+from models import FamilyMember, User
 from schemas.auth import TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -23,4 +23,32 @@ def login(body: UserLoginRequest, db: Session = Depends(get_db)):
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="이메일 또는 비밀번호가 잘못되었습니다.")
     token = create_access_token({"sub": user.email, "uid": user.id})
-    return {"access_token": token, "token_type": "bearer", "user": user}
+    membership = (
+        db.query(FamilyMember)
+        .filter(FamilyMember.user_id == user.id)
+        .order_by(FamilyMember.id.desc())
+        .first()
+    )
+    family_data = None
+    if membership:
+        family = membership.family
+        family_data = {
+            "id": family.id,
+            "name": family.name,
+            "members": [
+                {
+                    "user_id": member.user.id,
+                    "name": member.user.name,
+                    "email": member.user.email,
+                    "role": member.role,
+                }
+                for member in family.members
+            ],
+            "created_at": family.created_at,
+        }
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": user,
+        "family": family_data,
+    }

@@ -8,10 +8,27 @@ import Header from './components/Header'
 import ChildPage from './components/ChildPage'
 import ParentPage from './components/ParentPage'
 import LibraryPage from './components/LibraryPage'
+import FamilyPanel from './components/FamilyPanel'
 import { Icon } from './utils/icons'
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 const heroBackgrounds = [heroEnvelopeEyes, heroLetter]
+const NICKNAME_MAX_LENGTH = 12
+const roleOptions = [
+  { value: 'son', label: '아들', description: '마음을 질문으로 보내요' },
+  { value: 'daughter', label: '딸', description: '마음을 질문으로 보내요' },
+  { value: 'father', label: '아빠', description: '경험을 답장으로 남겨요' },
+  { value: 'mother', label: '엄마', description: '경험을 답장으로 남겨요' },
+]
+const roleLabels = { son: '아들', daughter: '딸', father: '아빠', mother: '엄마', child: '자녀', parent: '부모' }
+const toneOptions = [
+  { value: 'firm', title: '단호하고 분명하게', description: '기준과 책임을 또렷하게 전해요.' },
+  { value: 'warm', title: '따뜻하고 공감하게', description: '이해와 온기를 먼저 전해요.' },
+  { value: 'calm', title: '차분하게 설명하기', description: '이유를 순서 있게 말해요.' },
+  { value: 'practical', title: '현실적인 해결 중심', description: '실행 가능한 행동에 집중해요.' },
+  { value: 'friendly', title: '친근하고 편안하게', description: '평소 대화처럼 전해요.' },
+]
+const isChildRole = (role) => ['son', 'daughter', 'child'].includes(role)
 
 const formatDate = (dateString) => {
   if (!dateString) return ''
@@ -33,14 +50,14 @@ export default function App() {
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [authName, setAuthName] = useState('')
-  const [authRole, setAuthRole] = useState('child')
+  const [authRole, setAuthRole] = useState('son')
   const [inviteCodeInput, setInviteCodeInput] = useState('')
   const [familyNameInput, setFamilyNameInput] = useState('')
-  const [inviteCode, setInviteCode] = useState('')
+  const [familyAliasInput, setFamilyAliasInput] = useState('')
 
   const [apiStatus, setApiStatus] = useState('checking')
   const [aiReady, setAiReady] = useState(false)
-  const [screen, setScreen] = useState(() => (userRole === 'parent' ? 'parent' : 'child'))
+  const [screen, setScreen] = useState(() => (isChildRole(userRole) ? 'child' : 'parent'))
   const [emotion, setEmotion] = useState('지침')
   const [worry, setWorry] = useState('')
   const [mode, setMode] = useState('stealth')
@@ -50,8 +67,14 @@ export default function App() {
   const [selectedQuestion, setSelectedQuestion] = useState('')
   const [answer, setAnswer] = useState('')
   const [polished, setPolished] = useState('')
+  const [recommendationReason, setRecommendationReason] = useState('')
+  const [answerTone, setAnswerTone] = useState('warm')
   const [library, setLibrary] = useState([])
   const [openRaw, setOpenRaw] = useState(null)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteData, setInviteData] = useState(null)
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteMessage, setInviteMessage] = useState('')
 
   const [loading, setLoading] = useState(false)
   const [notice, setNotice] = useState('')
@@ -59,36 +82,79 @@ export default function App() {
   const [heroIndex, setHeroIndex] = useState(0)
   const timer = useRef()
 
+  const membership = family?.members?.find((member) => member.user_id === user?.id)
+  const currentRole = membership?.role || userRole
+  const childUser = isChildRole(currentRole)
+  const notificationCount = pendingDeliveries.filter((delivery) => delivery.should_notify).length
+
   const authHeaders = useCallback(() => ({
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }), [token])
 
   const go = (next) => {
+    if (next === 'child' && !childUser) return
+    if (next === 'parent' && childUser) return
     setScreen(next)
     setNotice('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const createInvite = async () => {
-    setNotice('')
+  const openInvitePanel = async () => {
+    setInviteOpen(true)
+    setInviteLoading(true)
+    setInviteMessage('')
     try {
-      const res = await fetch(`${API}/api/families/invites`, {
-        method: 'POST',
-        headers: authHeaders(),
-      })
+      const [familyRes, inviteRes] = await Promise.all([
+        fetch(`${API}/api/families/${family.id}`, { headers: authHeaders() }),
+        fetch(`${API}/api/families/${family.id}/invite`, { headers: authHeaders() }),
+      ])
+      if (!familyRes.ok || !inviteRes.ok) {
+        const error = await (!familyRes.ok ? familyRes : inviteRes).json()
+        throw new Error(error.detail || '가족 정보를 확인하지 못했습니다.')
+      }
+      const latestFamily = await familyRes.json()
+      setFamily(latestFamily)
+      localStorage.setItem('seuljjeock-family', JSON.stringify(latestFamily))
+      setInviteData(await inviteRes.json())
+    } catch (err) {
+      setInviteMessage(err.message)
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
+  const createInvite = async () => {
+    setInviteLoading(true)
+    setInviteMessage('')
+    try {
+      const res = await fetch(`${API}/api/families/${family.id}/invites`, { method: 'POST', headers: authHeaders() })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || '초대 코드 생성 실패')
-      setInviteCode(data.invite_code)
-      try {
-        await navigator.clipboard.writeText(data.invite_code)
-        setNotice(`초대 코드 ${data.invite_code}를 복사했습니다.`)
-      } catch {
-        setNotice(`초대 코드: ${data.invite_code}`)
-      }
+      setInviteData(data)
+      setInviteMessage('새 가족에게 이 코드를 공유해 주세요.')
     } catch (err) {
-      setNotice(err.message)
+      setInviteMessage(err.message)
+    } finally {
+      setInviteLoading(false)
     }
+  }
+
+  const copyInvite = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteData.invite_code)
+      setInviteMessage('초대 코드를 복사했습니다.')
+    } catch {
+      setInviteMessage('복사하지 못했습니다. 코드를 직접 선택해 주세요.')
+    }
+  }
+
+  const chooseDelivery = (delivery) => {
+    setCurrentDelivery(delivery)
+    setSelectedQuestion(delivery.questions?.[0] || delivery.target_question)
+    setAnswer('')
+    setPolished('')
+    setRecommendationReason('')
   }
 
   useEffect(() => {
@@ -130,8 +196,9 @@ export default function App() {
         const deliveries = await qRes.json()
         setPendingDeliveries(deliveries)
         if (deliveries.length > 0) {
-          setCurrentDelivery(deliveries[0])
-          setSelectedQuestion(deliveries[0].questions[0] || deliveries[0].target_question)
+          const active = deliveries.find((delivery) => delivery.id === currentDelivery?.id) || deliveries[0]
+          setCurrentDelivery(active)
+          setSelectedQuestion((selected) => active.questions.includes(selected) ? selected : (active.questions[0] || active.target_question))
         } else {
           setCurrentDelivery(null)
           setSelectedQuestion('')
@@ -145,14 +212,17 @@ export default function App() {
     } catch {
       setNotice('서버 데이터를 가져오는 중 오류가 발생했습니다.')
     }
-  }, [authHeaders, family, token])
+  }, [authHeaders, currentDelivery?.id, family, token])
 
   useEffect(() => {
     if (token && family?.id) {
       // 서버 상태를 화면 진입 시 동기화해야 하므로 의도적으로 effect에서 갱신합니다.
       // oxlint-disable-next-line react-hooks/set-state-in-effect
       refreshData()
+      const interval = setInterval(refreshData, 10000)
+      return () => clearInterval(interval)
     }
+    return undefined
   }, [family?.id, refreshData, screen, token])
 
   const handleAuthSubmit = async (e) => {
@@ -172,8 +242,21 @@ export default function App() {
         setUser(data.user)
         localStorage.setItem('seuljjeock-token', data.access_token)
         localStorage.setItem('seuljjeock-user', JSON.stringify(data.user))
-        setNotice(`${data.user.name}님 환영합니다! 가족 그룹을 연결해 주세요.`)
-        setAuthMode('family_join')
+        if (data.family) {
+          const savedMembership = data.family.members.find((member) => member.user_id === data.user.id)
+          const savedRole = savedMembership?.role || 'child'
+          setFamily(data.family)
+          setUserRole(savedRole)
+          localStorage.setItem('seuljjeock-family', JSON.stringify(data.family))
+          localStorage.setItem('seuljjeock-role', savedRole)
+          setScreen(isChildRole(savedRole) ? 'child' : 'parent')
+          setNotice(`${data.user.name}님, 다시 오신 것을 환영합니다!`)
+        } else {
+          setFamily(null)
+          localStorage.removeItem('seuljjeock-family')
+          setNotice(`${data.user.name}님 환영합니다! 가족 그룹을 연결해 주세요.`)
+          setAuthMode('family_join')
+        }
       } else if (authMode === 'register') {
         const displayName = authName.trim()
         const res = await fetch(`${API}/api/auth/register`, {
@@ -189,30 +272,36 @@ export default function App() {
         const res = await fetch(`${API}/api/families`, {
           method: 'POST',
           headers: authHeaders(),
-          body: JSON.stringify({ name: familyNameInput, role: authRole }),
+          body: JSON.stringify({ name: familyNameInput, role: authRole, nickname: familyAliasInput.trim() }),
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.detail || '가족 생성 실패')
         setFamily(data)
         setUserRole(authRole)
+        const renamedUser = { ...user, name: familyAliasInput.trim() }
+        setUser(renamedUser)
         localStorage.setItem('seuljjeock-family', JSON.stringify(data))
         localStorage.setItem('seuljjeock-role', authRole)
+        localStorage.setItem('seuljjeock-user', JSON.stringify(renamedUser))
         setNotice(`'${data.name}' 가족이 연결되었습니다!`)
-        go(authRole === 'parent' ? 'parent' : 'child')
+        setScreen(isChildRole(authRole) ? 'child' : 'parent')
       } else if (authMode === 'family_join') {
         const res = await fetch(`${API}/api/families/join`, {
           method: 'POST',
           headers: authHeaders(),
-          body: JSON.stringify({ invite_code: inviteCodeInput, role: authRole }),
+          body: JSON.stringify({ invite_code: inviteCodeInput, role: authRole, nickname: familyAliasInput.trim() }),
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.detail || '가족 참여 실패')
         setFamily(data)
         setUserRole(authRole)
+        const renamedUser = { ...user, name: familyAliasInput.trim() }
+        setUser(renamedUser)
         localStorage.setItem('seuljjeock-family', JSON.stringify(data))
         localStorage.setItem('seuljjeock-role', authRole)
+        localStorage.setItem('seuljjeock-user', JSON.stringify(renamedUser))
         setNotice(`'${data.name}' 가족에 참여하셨습니다!`)
-        go(authRole === 'parent' ? 'parent' : 'child')
+        setScreen(isChildRole(authRole) ? 'child' : 'parent')
       }
     } catch (err) {
       setNotice(err.message)
@@ -230,10 +319,14 @@ export default function App() {
     setUser(null)
     setFamily(null)
     setUserRole('child')
-    setInviteCode('')
+    setAuthRole('son')
+    setInviteOpen(false)
+    setInviteData(null)
+    setInviteMessage('')
     setPendingDeliveries([])
     setLibrary([])
     setCurrentDelivery(null)
+    setFamilyAliasInput('')
     setAuthMode('login')
     setNotice('로그아웃되었습니다.')
   }
@@ -252,9 +345,8 @@ export default function App() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || '질문 전달 실패')
       setWorry('')
-      setNotice('부모님이 부담 느끼지 않도록 4개의 일상 질문 사이에 섞어 조용히 보냈어요.')
+      setNotice(mode === 'direct' ? '익명화한 질문 한 장을 바로 전했어요.' : '4개의 일상 질문 사이에 섞어 조용히 보냈어요.')
       await refreshData()
-      go('library')
     } catch (err) {
       setNotice(err.message)
     } finally {
@@ -280,11 +372,12 @@ export default function App() {
       const res = await fetch(`${API}/api/answers/polish`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ answer, question: selectedQuestion }),
+        body: JSON.stringify({ answer, question: selectedQuestion, tone: answerTone }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || '답변 다듬기 실패')
       setPolished(data.polished)
+      setRecommendationReason(data.recommendation_reason || '')
     } catch (err) {
       setNotice(err.message)
     } finally {
@@ -292,19 +385,22 @@ export default function App() {
     }
   }
 
-  async function saveAnswer() {
+  async function saveAnswer(version = 'polished') {
     if (!currentDelivery?.id) return setNotice('답변할 대상 질문이 없습니다.')
+    const finalAnswer = version === 'original' ? answer : polished
+    if (!finalAnswer.trim()) return setNotice('보낼 답변을 먼저 작성해 주세요.')
     setLoading(true)
     try {
       const res = await fetch(`${API}/api/answers/deliveries/${currentDelivery.id}`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ question: selectedQuestion, answer }),
+        body: JSON.stringify({ question: selectedQuestion, answer, final_answer: finalAnswer, tone: answerTone }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || '답변 저장 실패')
       setAnswer('')
       setPolished('')
+      setRecommendationReason('')
       setNotice('부모님의 소중한 경험이 가족 서재에 기록되었습니다.')
       await refreshData()
       go('library')
@@ -479,18 +575,28 @@ export default function App() {
             )}
 
             <fieldset className="role-picker">
-              <legend>나의 역할</legend>
-              <label className={authRole === 'child' ? 'selected' : ''}>
-                <input type="radio" name="role" value="child" checked={authRole === 'child'} onChange={() => setAuthRole('child')} />
-                <span>자녀</span>
-                <small>마음을 질문으로 보내요</small>
-              </label>
-              <label className={authRole === 'parent' ? 'selected' : ''}>
-                <input type="radio" name="role" value="parent" checked={authRole === 'parent'} onChange={() => setAuthRole('parent')} />
-                <span>부모</span>
-                <small>경험을 답장으로 남겨요</small>
-              </label>
+              <legend>가족 안에서 나의 역할</legend>
+              {roleOptions.map((role) => (
+                <label key={role.value} className={authRole === role.value ? 'selected' : ''}>
+                  <input type="radio" name="role" value={role.value} checked={authRole === role.value} onChange={() => setAuthRole(role.value)} />
+                  <span>{role.label}</span>
+                  <small>{role.description}</small>
+                </label>
+              ))}
             </fieldset>
+
+            <label>
+              <span>가족에게 보일 별칭</span>
+              <input
+                type="text"
+                placeholder="예: 다정한 엄마, 씩씩이"
+                value={familyAliasInput}
+                onChange={(e) => setFamilyAliasInput(e.target.value)}
+                maxLength={NICKNAME_MAX_LENGTH}
+                required
+              />
+              <small className="input-count">{familyAliasInput.length}/{NICKNAME_MAX_LENGTH}자</small>
+            </label>
 
             {notice && <p className="auth-notice">{notice}</p>}
             <button className="auth-submit" type="submit" disabled={loading}>
@@ -513,32 +619,50 @@ export default function App() {
   return (
     <div className="app">
       <Header
-        token={token} family={family} user={user} userRole={userRole} screen={screen}
-        go={go} pendingCount={pendingDeliveries.length} apiStatus={apiStatus} aiReady={aiReady}
-        onLogout={handleLogout} onCreateInvite={createInvite} inviteCode={inviteCode}
+        token={token} family={family} user={user} userRole={currentRole} screen={screen}
+        go={go} pendingCount={notificationCount} apiStatus={apiStatus} aiReady={aiReady}
+        onLogout={handleLogout} onOpenFamily={openInvitePanel}
       />
+
+      {inviteOpen && (
+        <FamilyPanel
+          family={family}
+          user={user}
+          roleLabels={roleLabels}
+          inviteData={inviteData}
+          loading={inviteLoading}
+          message={inviteMessage}
+          formatDate={formatDate}
+          onClose={() => setInviteOpen(false)}
+          onCreateInvite={createInvite}
+          onCopyInvite={copyInvite}
+        />
+      )}
 
       {notice && <p className="notice">{notice}</p>}
 
-      {token && family && userRole === 'child' && screen === 'child' && (
+      {token && family && childUser && screen === 'child' && (
         <ChildPage
           emotion={emotion} setEmotion={setEmotion} worry={worry} setWorry={setWorry}
           mode={mode} setMode={setMode} transformAndSend={transformAndSend} loading={loading}
         />
       )}
 
-      {token && family && userRole === 'parent' && screen === 'parent' && (
+      {token && family && !childUser && screen === 'parent' && (
         <ParentPage
           pendingDeliveries={pendingDeliveries} currentDelivery={currentDelivery}
+          chooseDelivery={chooseDelivery}
           selectedQuestion={selectedQuestion} setSelectedQuestion={setSelectedQuestion}
           recording={recording} record={record} answer={answer} setAnswer={setAnswer}
           polished={polished} setPolished={setPolished} polish={polish} saveAnswer={saveAnswer}
+          recommendationReason={recommendationReason} setRecommendationReason={setRecommendationReason}
+          answerTone={answerTone} setAnswerTone={setAnswerTone} toneOptions={toneOptions}
           loading={loading}
         />
       )}
 
       {token && family && screen === 'library' && (
-        <LibraryPage library={library} formatDate={formatDate} react={react} openRaw={openRaw} setOpenRaw={setOpenRaw} />
+        <LibraryPage library={library} formatDate={formatDate} react={react} openRaw={openRaw} setOpenRaw={setOpenRaw} childUser={childUser} />
       )}
 
       <footer>
