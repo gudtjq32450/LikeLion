@@ -1,0 +1,1720 @@
+frontend/vite.config.js
+`````
+import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react()],
+})
+
+`````
+
+frontend/package.json
+`````
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "oxlint": "^1.79.0",
+    "vite": "^8.2.2"
+  }
+}
+
+`````
+
+frontend/index.html
+`````
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frontend</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+`````
+
+frontend/src/App.css
+`````
+:root{--cream:#f7f0e7;--paper:#fffaf4;--ink:#3d3029;--muted:#85766d;--line:#ded2c5;--terra:#a65335;--dark:#81402b;--sage:#7a8871;--serif:'Gowun Batang',serif}.app{min-height:100vh;background:radial-gradient(circle at 50% 0,#fffaf3,var(--cream) 48rem)}header{height:76px;padding:0 max(28px,calc((100vw - 1120px)/2));display:grid;grid-template-columns:1fr auto 1fr;align-items:center;border-bottom:1px solid #876c5b2e;background:#fffaf4e8;backdrop-filter:blur(14px);position:sticky;top:0;z-index:10}button{cursor:pointer}.brand{border:0;background:none;display:flex;align-items:baseline;gap:11px;padding:0;justify-self:start}.brand b,footer>b{font:700 25px var(--serif);color:var(--terra);letter-spacing:-.08em}.brand span{font-size:11px;color:var(--muted);letter-spacing:.08em}nav{height:100%;display:flex;gap:30px}nav button{border:0;border-bottom:2px solid transparent;background:none;font-size:13px;color:#8a7b72;padding-top:3px}nav button.on,nav button:hover{color:var(--terra);border-bottom-color:var(--terra)}.family{justify-self:end;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:9px}.family b{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--sage);color:white;font-family:var(--serif)}.page{width:min(820px,calc(100% - 40px));margin:auto;padding:70px 0 100px;animation:rise .4s ease}@keyframes rise{from{opacity:0;transform:translateY(8px)}}.eyebrow{color:var(--terra);font-size:12px;font-weight:700;letter-spacing:.1em;margin-bottom:15px}h1,h2,p{margin-top:0}h1{font:700 clamp(32px,5vw,46px)/1.32 var(--serif);letter-spacing:-.045em;margin-bottom:15px;color:#392a22}.lead{color:var(--muted);line-height:1.75;font-size:15px}.child>.eyebrow,.child>h1,.child>.lead{text-align:center}.paper{margin-top:46px;padding:42px 46px;background:#fffaf4f2;border:1px solid var(--line);border-radius:4px;box-shadow:0 18px 50px #5035250f}.step{display:flex;gap:17px;margin-bottom:22px}.step>span{font:400 13px var(--serif);color:var(--terra);padding-top:4px}.step h2,.answer-head h2{font:700 20px var(--serif);letter-spacing:-.03em;margin-bottom:5px}.step p,.answer-head p{font-size:12px;color:var(--muted);margin:0}.emotions{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}.emotions button{height:92px;border:1px solid var(--line);border-radius:3px;background:#fffcf8;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;font-size:12px;transition:.2s}.emotions button:hover{transform:translateY(-2px);border-color:var(--terra)}.emotions button.selected{border:2px solid var(--terra);color:var(--terra);background:#fdf5ef}.emotions i{font:normal 27px/1 var(--serif);color:var(--terra)}.emotions em{position:absolute;right:5px;top:5px;width:17px;height:17px;background:var(--terra);color:white;border-radius:50%;display:grid;place-items:center}.emotions svg{width:12px;fill:none;stroke:currentColor;stroke-width:2}hr{border:0;border-top:1px solid #e6ddd4;margin:35px 0}.field{position:relative;display:block}.field textarea{resize:vertical;width:100%;min-height:116px;border:1px solid var(--line);border-radius:3px;background:#fffcf8;color:var(--ink);padding:17px 18px 30px;line-height:1.7;font-size:14px}.field textarea:focus{border-color:var(--terra);outline:0;box-shadow:0 0 0 3px #a6533514}.field textarea::placeholder{color:#b3a59b}.field small{position:absolute;right:13px;bottom:9px;color:#b0a197;font-size:10px}.modes{display:grid;grid-template-columns:1fr 1fr;gap:12px}.modes>button{border:1px solid var(--line);background:#fffcf8;border-radius:3px;padding:18px;display:flex;gap:13px;text-align:left}.modes>button.selected{border:2px solid var(--terra);background:#fdf6ef}.modes>button>i{width:15px;height:15px;border-radius:50%;border:1px solid #b9aaa0;flex:none;margin-top:3px}.modes>button.selected>i{border:4px solid var(--terra)}.modes b{font:700 15px var(--serif)}.modes em{font:600 9px 'Noto Sans KR';font-style:normal;color:var(--terra);background:#f2dfd4;padding:3px 6px;border-radius:10px}.modes p{margin:8px 0 0;color:var(--muted);font-size:11px;line-height:1.55}.action{border:0;border-radius:3px;width:100%;height:52px;margin-top:28px;background:var(--terra);color:white;display:flex;align-items:center;justify-content:center;gap:9px;font-size:13px;font-weight:600;box-shadow:0 8px 20px #a6533528}.action:hover{background:var(--dark);transform:translateY(-1px)}.action:disabled{opacity:.65}.action svg,.back svg,.count svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}.action>i{width:15px;height:15px;border:2px solid #ffffff59;border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.privacy{text-align:center;color:#9c8e84;font-size:10px;margin:13px 0 0}.notice{text-align:center;color:var(--terra);font-size:12px;margin:15px 0 -14px}.back{border:0;background:none;padding:0;display:flex;gap:4px;align-items:center;color:var(--muted);font-size:11px;margin-bottom:36px}.back svg{width:17px}.hero{display:flex;justify-content:space-between;gap:30px;align-items:flex-start}.date{width:76px;height:94px;flex:none;border:1px solid var(--line);background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center}.date span{font-size:9px;letter-spacing:.18em;color:var(--terra)}.date b{font:700 29px/1.2 var(--serif)}.date small{font-size:9px;color:var(--muted)}.question{margin-top:42px;padding:30px 34px;border-left:3px solid var(--terra);background:#efe5d9}.question>div{display:flex;gap:10px;align-items:center}.question>div b{color:var(--terra);font-size:11px}.question em{font-style:normal;font-size:9px;background:#fff8f1;padding:4px 8px;border-radius:10px}.question blockquote{font:700 22px/1.65 var(--serif);margin:14px 0;color:#3e2d24;word-break:keep-all}.question>small{color:var(--muted);font-size:11px}.answer{margin-top:20px}.answer-head{display:flex;justify-content:space-between}.answer-head>span{height:max-content;border:1px solid var(--line);font-size:10px;color:var(--muted);padding:5px 9px}.recorder{margin-top:22px;border:1px dashed #cbbcae;background:#fffcf8;padding:20px;display:flex;align-items:center;gap:15px}.recorder>button{width:48px;height:48px;border:0;border-radius:50%;background:#ead8cc;color:var(--terra);display:grid;place-items:center}.recorder>button svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.7}.recorder>div:nth-child(2){display:flex;flex-direction:column;gap:4px}.recorder b{font:700 14px var(--serif)}.recorder small{color:var(--muted);font-size:10px}.recorder.live>button{background:var(--terra);color:white;animation:pulse 1.2s infinite}@keyframes pulse{50%{box-shadow:0 0 0 10px #a6533517}}.wave{margin-left:auto;display:flex;align-items:center;gap:3px}.wave i{width:2px;height:15px;background:var(--terra);animation:wave .7s ease infinite alternate}.wave i:nth-child(even){height:23px;animation-delay:.2s}@keyframes wave{to{height:4px;opacity:.4}}.or{display:flex;gap:12px;align-items:center;color:#a5968c;font-size:9px;margin:23px 0}.or:before,.or:after{content:'';height:1px;background:#e4d9cf;flex:1}.answer textarea{min-height:130px}.chips{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:10px}.chips span{font-size:9px;color:var(--muted)}.chips button{border:1px solid var(--line);background:none;border-radius:14px;padding:5px 9px;font-size:9px}.polished{border:1px solid #d7c1b4;background:#fbf3eb;padding:24px;margin-top:28px}.polished>div:first-child{display:flex;justify-content:space-between;color:var(--terra);font-size:11px}.polished>div:first-child button,.wisdom-foot>button{border:0;background:none;text-decoration:underline;color:var(--muted);font-size:9px}.polished>p{font:400 16px/1.9 var(--serif);margin:20px 0}.actions{display:grid!important;grid-template-columns:1fr 2fr;gap:8px}.actions button{height:46px;border:1px solid var(--line);background:var(--paper)}.actions button:last-child{border:0;background:var(--terra);color:white}.count{min-width:115px;padding:16px;background:#eee3d7;color:var(--terra);display:grid;grid-template-columns:auto auto;align-items:center;justify-content:center;gap:3px 9px}.count b{font:700 25px var(--serif)}.count span{grid-column:1/-1;text-align:center;font-size:9px;color:var(--muted)}.shelf{display:flex;align-items:center;gap:16px;margin:47px 0 18px;color:var(--muted);font-size:11px}.shelf i{height:1px;background:var(--line);flex:1}.wisdom-list{display:grid;gap:18px}.wisdom{padding:34px 37px 28px;background:var(--paper);border:1px solid var(--line);position:relative;box-shadow:0 10px 35px #5035250a}.wisdom.latest:before{content:'';position:absolute;inset:0 auto 0 0;width:3px;background:var(--terra)}.wisdom-top{display:flex;justify-content:space-between}.wisdom-top span,.wisdom-top em{font-style:normal;font-size:9px;color:var(--terra);background:#f0ded3;border-radius:12px;padding:4px 8px}.wisdom-top em{margin-left:5px;background:var(--terra);color:white}.wisdom-top time{font-size:9px;color:#aa9c92}.wisdom>small{display:block;color:var(--muted);font-size:10px;margin:18px 0 9px}.wisdom blockquote{margin:0 0 25px;font:700 18px/1.9 var(--serif);word-break:keep-all}.author{display:flex;align-items:center;gap:10px}.author>b{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;background:var(--sage);color:white;font:700 12px var(--serif)}.author>div{display:flex;flex-direction:column}.author strong{font:700 11px var(--serif)}.author span{font-size:8px;color:var(--muted)}.wisdom-foot{border-top:1px solid #e7ddd3;margin-top:24px;padding-top:18px;display:flex;justify-content:space-between}.wisdom-foot>div{display:flex;gap:7px}.wisdom-foot>div button{border:1px solid var(--line);background:none;border-radius:16px;padding:6px 10px;font-size:9px}.raw{margin-top:17px;padding:15px 17px;background:#f2ebe3}.raw b{font-size:9px;color:var(--terra)}.raw p{font-size:11px;color:var(--muted);margin:5px 0 0}.new{display:block;border:0;background:none;color:var(--terra);font:700 12px var(--serif);margin:32px auto 0}footer{text-align:center;border-top:1px solid #876c5b29;padding:37px 20px;background:#efe5d9}footer p{font:12px var(--serif);color:var(--muted);margin:8px 0 15px}footer small{font-size:8px;color:#a19288}
+@media(max-width:720px){header{height:64px;padding:0 18px;grid-template-columns:1fr auto}.brand span,.family{display:none}nav{position:fixed;inset:auto 0 0;height:58px;background:var(--paper);border-top:1px solid var(--line);z-index:20;gap:0}nav button{flex:1;border-bottom:0;border-top:2px solid transparent}nav button.on{border-top-color:var(--terra);border-bottom-color:transparent}.page{width:min(100% - 28px,580px);padding:48px 0 90px}.paper{padding:28px 20px;margin-top:34px}.emotions{grid-template-columns:repeat(3,1fr)}.modes{grid-template-columns:1fr}.question{padding:25px 22px}.question blockquote{font-size:18px}.wisdom{padding:27px 22px 23px}footer{padding-bottom:90px}}@media(max-width:440px){h1{font-size:30px}.lead br{display:none}.date{display:none}.library .hero{display:block}.count{margin-top:20px;display:inline-grid}.actions{grid-template-columns:1fr}.wisdom-foot{display:block}.wisdom-foot>button{margin-top:12px}}
+
+/* API 상태 표시 */
+.api-status { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); padding: 4px 10px; border-radius: 20px; background: rgba(0, 0, 0, 0.03); border: 1px solid var(--line); }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; transition: background-color 0.3s ease; }
+.status-dot.online { background-color: #22c55e; box-shadow: 0 0 8px rgba(34, 197, 94, 0.45); }
+.status-dot.offline { background-color: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.45); }
+
+`````
+
+frontend/src/utils/icons.jsx
+`````
+export function Icon({ type }) {
+  const d = {
+    arrow: 'M5 12h14m-5-5 5 5-5 5',
+    back: 'm15 18-6-6 6-6',
+    check: 'm5 12 4 4L19 6',
+    mic: 'M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-6 8a6 6 0 0 0 12 0m-6 6v4m-3 0h6',
+    book: 'M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5V5.5Zm16 0A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5v-16Z',
+    logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14 5-5-5-5m5 5H9',
+  }[type]
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  )
+}
+
+`````
+
+frontend/src/components/Header.jsx
+`````
+import { Icon } from '../utils/icons'
+
+export default function Header({
+  token, family, user, userRole, screen, go, pendingCount, apiStatus, aiReady, onLogout
+}) {
+  return (
+    <header>
+      <button className="brand" onClick={() => go(userRole === 'parent' ? 'parent' : 'child')}>
+        <b>슬쩍</b>
+        <span>마음을 잇는 작은 질문</span>
+      </button>
+
+      {token && family && (
+        <nav>
+          {userRole === 'child' && (
+            <button className={screen === 'child' ? 'on' : ''} onClick={() => go('child')}>
+              마음 보내기
+            </button>
+          )}
+
+          {userRole === 'parent' && (
+            <button className={screen === 'parent' ? 'on' : ''} onClick={() => go('parent')}>
+              오늘의 문답 {pendingCount > 0 && `(${pendingCount})`}
+            </button>
+          )}
+
+          <button className={screen === 'library' ? 'on' : ''} onClick={() => go('library')}>
+            지혜 서재
+          </button>
+        </nav>
+      )}
+
+      <div className="family">
+        <div
+          className="api-status"
+          title={
+            apiStatus === 'online'
+              ? `서버 정상 (AI: ${aiReady ? '작동 중' : '로컬 모드'})`
+              : '서버 연결 끊김 (백엔드 확인 필요)'
+          }
+        >
+          <i className={`status-dot ${apiStatus === 'online' ? 'online' : 'offline'}`} />
+          <span>{apiStatus === 'online' ? (aiReady ? 'AI ON' : 'API OK') : '서버 오프라인'}</span>
+        </div>
+
+        {user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span>
+              {family?.name || '가족'} <b>{user.name}</b>
+            </span>
+            <button onClick={onLogout} title="로그아웃" style={{ border: 0, background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
+              <Icon type="logout" />
+            </button>
+          </div>
+        )}
+      </div>
+    </header>
+  )
+}
+
+`````
+
+frontend/src/components/AuthModal.jsx
+`````
+export default function AuthModal({
+  token, authMode, setAuthMode, authRole, handleRoleChange, authSubRole, handleSubRoleChange,
+  authName, setAuthName, authEmail, setAuthEmail, authPassword, setAuthPassword,
+  familyNameInput, setFamilyNameInput, inviteCodeInput, setInviteCodeInput,
+  handleAuthSubmit, loading
+}) {
+  return (
+    <div style={{ maxWidth: 460, margin: '50px auto 80px', padding: '0 20px', animation: 'rise 0.4s ease' }}>
+      <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <span style={{ color: 'var(--terra)', fontSize: 13, fontWeight: 700, letterSpacing: '0.1em' }}>SEUL-JJEOCK</span>
+        <h1 style={{ fontFamily: 'var(--serif)', fontSize: 32, margin: '10px 0 8px', color: 'var(--ink)' }}>마음을 잇는 작은 질문</h1>
+        <p style={{ color: 'var(--muted)', fontSize: 14, lineHeight: 1.6 }}>
+          말하지 못한 자녀의 고민과 부모의 지나온 삶의 지혜를 슬쩍 이어드립니다.
+        </p>
+      </div>
+
+      <div className="paper" style={{ padding: '36px 32px' }}>
+        <h2 style={{ fontFamily: 'var(--serif)', fontSize: 20, marginBottom: 18, color: 'var(--ink)' }}>
+          {!token ? (authMode === 'login' ? '로그인' : '가족 회원가입') : (authMode === 'family_create' ? '새 가족 만들기' : '가족 초대 코드 입력')}
+        </h2>
+
+        <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {!token && authMode === 'register' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 6 }}>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>1. 역할을 선택해주세요</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <button type="button" onClick={() => handleRoleChange('child')} style={{ padding: 11, border: authRole === 'child' ? '2px solid var(--terra)' : '1px solid var(--line)', background: authRole === 'child' ? '#fdf5ef' : '#fff', color: authRole === 'child' ? 'var(--terra)' : 'var(--ink)', fontWeight: 'bold', borderRadius: 4 }}>자녀로 참여</button>
+                  <button type="button" onClick={() => handleRoleChange('parent')} style={{ padding: 11, border: authRole === 'parent' ? '2px solid var(--terra)' : '1px solid var(--line)', background: authRole === 'parent' ? '#fdf5ef' : '#fff', color: authRole === 'parent' ? 'var(--terra)' : 'var(--ink)', fontWeight: 'bold', borderRadius: 4 }}>부모로 참여</button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>2. 가족 내 호칭을 골라주세요</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {(authRole === 'child' ? ['아들', '딸'] : ['아빠', '엄마']).map((sub) => (
+                    <button key={sub} type="button" onClick={() => handleSubRoleChange(sub)} style={{ padding: 9, border: authSubRole === sub ? '2px solid var(--terra)' : '1px solid var(--line)', background: authSubRole === sub ? '#fdf5ef' : '#fff', color: authSubRole === sub ? 'var(--terra)' : 'var(--muted)', borderRadius: 4 }}>{sub}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>표시될 이름 / 닉네임</label>
+                <input type="text" placeholder="예: 큰딸, 막내아들, 아빠" value={authName} onChange={(e) => setAuthName(e.target.value)} required style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 4 }} />
+              </div>
+            </div>
+          )}
+
+          {!token && (
+            <>
+              <input type="email" placeholder="이메일 주소" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} required style={{ padding: '11px 12px', border: '1px solid var(--line)', borderRadius: 4 }} />
+              <input type="password" placeholder="비밀번호" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} required style={{ padding: '11px 12px', border: '1px solid var(--line)', borderRadius: 4 }} />
+            </>
+          )}
+
+          {token && authMode === 'family_create' && (
+            <input type="text" placeholder="가족 그룹명 (예: 행복한 우리집, 김가네)" value={familyNameInput} onChange={(e) => setFamilyNameInput(e.target.value)} required style={{ padding: '11px 12px', border: '1px solid var(--line)', borderRadius: 4 }} />
+          )}
+
+          {token && authMode === 'family_join' && (
+            <input type="text" placeholder="8자리 가족 초대 코드 (예: A1B2C3D4)" value={inviteCodeInput} onChange={(e) => setInviteCodeInput(e.target.value)} required style={{ padding: '11px 12px', border: '1px solid var(--line)', borderRadius: 4 }} />
+          )}
+
+          <button type="submit" disabled={loading} style={{ padding: 13, marginTop: 6, background: 'var(--terra)', color: '#fff', border: 0, borderRadius: 4, fontWeight: 'bold', fontSize: 14, cursor: 'pointer' }}>
+            {loading ? '처리 중...' : authMode === 'login' ? '로그인하기' : '완료하고 시작하기'}
+          </button>
+        </form>
+
+        <div style={{ marginTop: 18, display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+          {!token ? (
+            <button type="button" onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} style={{ border: 0, background: 'none', color: 'var(--muted)', textDecoration: 'underline', cursor: 'pointer' }}>
+              {authMode === 'login' ? '처음이신가요? 회원가입하기' : '이미 계정이 있으신가요? 로그인'}
+            </button>
+          ) : (
+            <button type="button" onClick={() => setAuthMode(authMode === 'family_join' ? 'family_create' : 'family_join')} style={{ border: 0, background: 'none', color: 'var(--muted)', textDecoration: 'underline', cursor: 'pointer' }}>
+              {authMode === 'family_join' ? '+ 새 가족 만들기' : '기존 가족 초대 코드로 참여하기'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+`````
+
+frontend/src/components/ChildPage.jsx
+`````
+import { Icon } from '../utils/icons'
+
+const emotions = [
+  ['지침', '😮‍💨'], ['불안', '😟'], ['기쁨', '😊'], ['외로움', '🥺'], ['설렘', '🥰'], ['슬픔', '😢']
+]
+
+export default function ChildPage({
+  emotion, setEmotion, worry, setWorry, mode, setMode, transformAndSend, loading
+}) {
+  return (
+    <main className="page child">
+      <div className="eyebrow">● 마음 전달</div>
+      <h1>마음에 걸리는 일을<br />슬쩍 꺼내보세요</h1>
+      <p className="lead">
+        자녀의 고민 내용은 부모님께 그대로 노출되지 않습니다.<br />
+        AI가 부모님의 과거 회고 질문으로 바꾸어 일상 질문 4개와 함께 전달합니다.
+      </p>
+
+      <div className="paper">
+        <div className="step">
+          <span>01</span>
+          <div><h2>지금 마음의 날씨</h2><p>가장 가까운 감정을 골라주세요</p></div>
+        </div>
+        <div className="emotions">
+          {emotions.map(([label, icon]) => (
+            <button key={label} className={emotion === label ? 'selected' : ''} onClick={() => setEmotion(label)}>
+              <i>{icon}</i><span>{label}</span>
+            </button>
+          ))}
+        </div>
+
+        <hr />
+
+        <div className="step">
+          <span>02</span>
+          <div><h2>속마음 적어보기</h2><p>부모님께 직접 말하기 힘든 고민을 솔직하게 적어주세요</p></div>
+        </div>
+        <label className="field">
+          <textarea placeholder="예: 취업 준비가 길어져서 자꾸 포기하고 싶어져요. 노력해도 안 되는 것 같아 막막해요." value={worry} onChange={(e) => setWorry(e.target.value)} />
+          <small>{worry.length}자</small>
+        </label>
+
+        <hr />
+
+        <div className="step">
+          <span>03</span>
+          <div><h2>전달 방식</h2><p>자녀의 원래 고민은 저장되지 않고 정제된 질문 피드로만 변환됩니다</p></div>
+        </div>
+        <div className="modes">
+          <button className={mode === 'stealth' ? 'selected' : ''} onClick={() => setMode('stealth')}>
+            <i /><div><b>익명 질문 묶음 <em>추천</em></b><p>4개의 가벼운 일상 질문 속에 자녀의 핵심 질문 1개를 숨겨서 전달합니다.</p></div>
+          </button>
+          <button className={mode === 'direct' ? 'selected' : ''} onClick={() => setMode('direct')}>
+            <i /><div><b>단독 질문</b><p>정제된 회고 질문 1개만 부모님께 전달합니다.</p></div>
+          </button>
+        </div>
+
+        <button className="action" disabled={loading} onClick={transformAndSend}>
+          {loading ? <i /> : '질문 배달하기'}
+          {!loading && <Icon type="arrow" />}
+        </button>
+        <p className="privacy">자녀의 원문 고민은 AI 변환 즉시 파기되며 DB에 저장되지 않습니다.</p>
+      </div>
+    </main>
+  )
+}
+
+`````
+
+frontend/src/components/ParentPage.jsx
+`````
+import { Icon } from '../utils/icons'
+
+export default function ParentPage({
+  pendingDeliveries, currentDelivery, selectedQuestion, setSelectedQuestion,
+  recording, record, answer, setAnswer, polished, setPolished, polish, saveAnswer,
+  loading, go
+}) {
+  return (
+    <main className="page parent">
+      <div className="hero">
+        <div>
+          <div className="eyebrow">● 오늘의 인생 문답</div>
+          <h1>자녀에게서 도착한<br />질문 묶음</h1>
+          <p className="lead">가족의 마음이 담긴 질문들입니다. 마음에 드는 질문을 골라 짧게 경험을 들려주세요.</p>
+        </div>
+        <div className="date">
+          <span>DATE</span><b>{new Date().getDate()}</b><small>{new Date().getMonth() + 1}월</small>
+        </div>
+      </div>
+
+      {pendingDeliveries.length === 0 ? (
+        <div className="paper" style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <p style={{ color: 'var(--muted)', fontSize: 15 }}>현재 도착한 미답변 질문이 없습니다.</p>
+          <p style={{ color: '#b0a197', fontSize: 13, marginTop: 6 }}>자녀가 마음을 담아 새 질문을 보내면 여기에 표시됩니다.</p>
+        </div>
+      ) : (
+        <div className="paper">
+          <div className="step">
+            <span>01</span>
+            <div><h2>답변할 질문 선택</h2><p>5개의 질문 중 이야기해 주고 싶은 질문을 선택해 주세요</p></div>
+          </div>
+          <div style={{ display: 'grid', gap: 10, marginBottom: 25 }}>
+            {currentDelivery?.questions?.map((q, idx) => (
+              <button key={idx} onClick={() => setSelectedQuestion(q)} style={{ padding: '14px 16px', textAlign: 'left', border: selectedQuestion === q ? '2px solid var(--terra)' : '1px solid var(--line)', background: selectedQuestion === q ? '#fdf5ef' : '#fffcf8', borderRadius: 4, fontSize: 14, fontFamily: 'var(--serif)', cursor: 'pointer' }}>
+                {idx + 1}. {q}
+              </button>
+            ))}
+          </div>
+
+          <div className="question">
+            <div><b>선택된 질문</b><em>{currentDelivery?.emotion}</em></div>
+            <blockquote>{selectedQuestion}</blockquote>
+          </div>
+
+          <div className="answer">
+            <div className="answer-head"><h2>나의 경험 들려주기</h2><span>텍스트 또는 음성</span></div>
+            <div className={`recorder ${recording ? 'live' : ''}`}>
+              <button onClick={record}><Icon type="mic" /></button>
+              <div><b>음성으로 들려주기</b><small>{recording ? '음성을 듣고 있습니다...' : '마이크 버튼을 눌러 말씀해 보세요'}</small></div>
+              {recording && <div className="wave"><i /><i /><i /></div>}
+            </div>
+
+            <div className="or">또는 직접 입력</div>
+            <div className="field">
+              <textarea placeholder="그때를 돌이켜보면 어떤 마음이었는지 편하게 적어주세요." value={answer} onChange={(e) => setAnswer(e.target.value)} />
+            </div>
+
+            <button className="action" disabled={loading || !answer.trim()} onClick={polish} style={{ marginTop: 15 }}>
+              {loading ? <i /> : 'AI로 말투 다듬기'}
+            </button>
+
+            {polished && (
+              <div className="polished">
+                <div><span>자녀에게 전달될 다듬어진 문장</span></div>
+                <p>{polished}</p>
+                <div className="actions">
+                  <button onClick={() => setPolished('')}>다시 쓰기</button>
+                  <button onClick={saveAnswer} disabled={loading}>이 답변으로 지혜 남기기</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </main>
+  )
+}
+
+`````
+
+frontend/src/components/LibraryPage.jsx
+`````
+import { Icon } from '../utils/icons'
+
+export default function LibraryPage({ library, formatDate, react, openRaw, setOpenRaw }) {
+  return (
+    <main className="page library">
+      <div className="hero">
+        <div>
+          <div className="eyebrow">● 우리 가족 지혜 서재</div>
+          <h1>우리가 나눈 지혜들</h1>
+          <p className="lead">부모님의 경험과 온기가 담긴 답변들을 다시 읽고 간직할 수 있습니다.</p>
+        </div>
+        <div className="count">
+          <Icon type="book" /><b>{library.length}</b><span>개의 이야기</span>
+        </div>
+      </div>
+
+      <div className="wisdom-list" style={{ marginTop: 35 }}>
+        {library.length === 0 ? (
+          <p style={{ textAlign: 'center', color: 'var(--muted)', padding: 40 }}>아직 등록된 지혜 답변이 없습니다.</p>
+        ) : (
+          library.map((item) => (
+            <article key={item.id} className="wisdom">
+              <div className="wisdom-top">
+                <span>{item.emotion || '따뜻함'}</span>
+                <time>{formatDate(item.created_at)}</time>
+              </div>
+              <small>질문: {item.question}</small>
+              <blockquote>{item.polished_answer}</blockquote>
+              <div className="author">
+                <b>{item.author_name ? item.author_name[0] : '가'}</b>
+                <div><strong>{item.author_name || '부모님'}</strong><span>가족의 지혜</span></div>
+              </div>
+              <div className="wisdom-foot">
+                <div>
+                  <button onClick={() => react(item.id, 'thanks')}>고마워요 {item.thanks_count > 0 && `(${item.thanks_count})`}</button>
+                  <button onClick={() => react(item.id, 'moved')}>감동이에요 {item.moved_count > 0 && `(${item.moved_count})`}</button>
+                </div>
+                <button onClick={() => setOpenRaw(openRaw === item.id ? null : item.id)}>
+                  {openRaw === item.id ? '원문 접기' : '원문 보기'}
+                </button>
+              </div>
+              {openRaw === item.id && (
+                <div className="raw"><b>원래 건넨 말씀</b><p>{item.raw_answer}</p></div>
+              )}
+            </article>
+          ))
+        )}
+      </div>
+    </main>
+  )
+}
+
+`````
+
+frontend/src/App.jsx
+`````
+import { useEffect, useRef, useState } from 'react'
+import './App.css'
+import './QuestionOptions.css'
+import './FeatureUpdates.css'
+
+import Header from './components/Header'
+import AuthModal from './components/AuthModal'
+import ChildPage from './components/ChildPage'
+import ParentPage from './components/ParentPage'
+import LibraryPage from './components/LibraryPage'
+
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  const d = new Date(dateString)
+  return new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }).format(d)
+}
+
+export default function App() {
+  const [token, setToken] = useState(() => localStorage.getItem('seuljjeock-token') || '')
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('seuljjeock-user')) || null } catch { return null }
+  })
+  const [family, setFamily] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('seuljjeock-family')) || null } catch { return null }
+  })
+  const [userRole, setUserRole] = useState(() => localStorage.getItem('seuljjeock-role') || 'child')
+
+  const [authMode, setAuthMode] = useState('login')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authName, setAuthName] = useState('')
+  const [authRole, setAuthRole] = useState('child')
+  const [authSubRole, setAuthSubRole] = useState('딸')
+  const [inviteCodeInput, setInviteCodeInput] = useState('')
+  const [familyNameInput, setFamilyNameInput] = useState('')
+
+  const [apiStatus, setApiStatus] = useState('checking')
+  const [aiReady, setAiReady] = useState(false)
+  const [screen, setScreen] = useState(() => (userRole === 'parent' ? 'parent' : 'child'))
+  const [emotion, setEmotion] = useState('지침')
+  const [worry, setWorry] = useState('')
+  const [mode, setMode] = useState('stealth')
+
+  const [currentDelivery, setCurrentDelivery] = useState(null)
+  const [pendingDeliveries, setPendingDeliveries] = useState([])
+  const [selectedQuestion, setSelectedQuestion] = useState('')
+  const [answer, setAnswer] = useState('')
+  const [polished, setPolished] = useState('')
+  const [library, setLibrary] = useState([])
+  const [openRaw, setOpenRaw] = useState(null)
+
+  const [loading, setLoading] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [recording, setRecording] = useState(false)
+  const timer = useRef()
+
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  })
+
+  const go = (next) => {
+    setScreen(next)
+    setNotice('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await fetch(`${API}/api/health`, { method: 'GET' })
+        if (res.ok) {
+          const data = await res.json()
+          setApiStatus('online')
+          setAiReady(Boolean(data.ai))
+        } else {
+          setApiStatus('offline')
+          setAiReady(false)
+        }
+      } catch {
+        setApiStatus('offline')
+        setAiReady(false)
+      }
+    }
+    checkHealth()
+    const interval = setInterval(checkHealth, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const refreshData = async () => {
+    if (!token || !family?.id) return
+    try {
+      const qRes = await fetch(`${API}/api/questions/deliveries?family_id=${family.id}&status=pending`, { headers: authHeaders() })
+      if (qRes.ok) {
+        const deliveries = await qRes.json()
+        setPendingDeliveries(deliveries)
+        if (deliveries.length > 0) {
+          setCurrentDelivery(deliveries[0])
+          setSelectedQuestion(deliveries[0].questions[0] || deliveries[0].target_question)
+        } else {
+          setCurrentDelivery(null)
+          setSelectedQuestion('')
+        }
+      }
+      const aRes = await fetch(`${API}/api/answers?family_id=${family.id}`, { headers: authHeaders() })
+      if (aRes.ok) {
+        const answers = await aRes.json()
+        setLibrary(answers)
+      }
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (token && family?.id) refreshData()
+  }, [token, family?.id, screen])
+
+  const handleRoleChange = (role) => {
+    setAuthRole(role)
+    if (role === 'child') {
+      setAuthSubRole('딸')
+      if (!authName || ['아빠', '엄마'].includes(authName)) setAuthName('딸')
+    } else {
+      setAuthSubRole('아빠')
+      if (!authName || ['아들', '딸'].includes(authName)) setAuthName('아빠')
+    }
+  }
+
+  const handleSubRoleChange = (sub) => {
+    setAuthSubRole(sub)
+    setAuthName(sub)
+  }
+
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setNotice('')
+    try {
+      if (authMode === 'login') {
+        const res = await fetch(`${API}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: authEmail, password: authPassword }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.detail || '로그인에 실패했습니다.')
+        setToken(data.access_token)
+        setUser(data.user)
+        localStorage.setItem('seuljjeock-token', data.access_token)
+        localStorage.setItem('seuljjeock-user', JSON.stringify(data.user))
+        setNotice(`${data.user.name}님 환영합니다! 가족 그룹을 연결해 주세요.`)
+        setAuthMode('family_join')
+      } else if (authMode === 'register') {
+        const displayName = authName.trim() || authSubRole
+        const res = await fetch(`${API}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: authEmail, password: authPassword, name: displayName }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.detail || '회원가입에 실패했습니다.')
+        setNotice('가입이 완료되었습니다. 방금 만든 정보로 로그인해 주세요.')
+        setAuthMode('login')
+      } else if (authMode === 'family_create') {
+        const res = await fetch(`${API}/api/families`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ name: familyNameInput, role: authRole }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.detail || '가족 생성 실패')
+        setFamily(data)
+        setUserRole(authRole)
+        localStorage.setItem('seuljjeock-family', JSON.stringify(data))
+        localStorage.setItem('seuljjeock-role', authRole)
+        setNotice(`'${data.name}' 가족이 연결되었습니다!`)
+        go(authRole === 'parent' ? 'parent' : 'child')
+      } else if (authMode === 'family_join') {
+        const res = await fetch(`${API}/api/families/join`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ invite_code: inviteCodeInput, role: authRole }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.detail || '가족 참여 실패')
+        setFamily(data)
+        setUserRole(authRole)
+        localStorage.setItem('seuljjeock-family', JSON.stringify(data))
+        localStorage.setItem('seuljjeock-role', authRole)
+        setNotice(`'${data.name}' 가족에 참여하셨습니다!`)
+        go(authRole === 'parent' ? 'parent' : 'child')
+      }
+    } catch (err) {
+      setNotice(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('seuljjeock-token')
+    localStorage.removeItem('seuljjeock-user')
+    localStorage.removeItem('seuljjeock-family')
+    localStorage.removeItem('seuljjeock-role')
+    setToken('')
+    setUser(null)
+    setFamily(null)
+    setUserRole('child')
+    setAuthMode('login')
+    setNotice('로그아웃되었습니다.')
+  }
+
+  async function transformAndSend() {
+    if (!worry.trim()) return setNotice('마음에 걸리는 일을 한 줄만 들려주세요.')
+    if (!family?.id) return setNotice('가족 그룹에 먼저 연결되어야 질문을 전송할 수 있습니다.')
+    setLoading(true)
+    setNotice('')
+    try {
+      const res = await fetch(`${API}/api/questions/deliveries`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ family_id: family.id, worry, emotion, mode }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || '질문 전달 실패')
+      setWorry('')
+      setNotice('부모님이 부담 느끼지 않도록 4개의 일상 질문 사이에 섞어 조용히 보냈어요.')
+      await refreshData()
+      go('library')
+    } catch (err) {
+      setNotice(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function record() {
+    if (recording) { clearTimeout(timer.current); return setRecording(false) }
+    setRecording(true)
+    setNotice('목소리를 듣고 있어요…')
+    timer.current = setTimeout(() => {
+      setRecording(false)
+      setAnswer('나도 그때는 앞이 캄캄하고 막막했단다. 그래도 하루하루 버티다 보니 다 지나가더라.')
+      setNotice('음성을 글로 옮겼어요.')
+    }, 2200)
+  }
+
+  async function polish() {
+    if (!answer.trim()) return setNotice('짧게라도 경험을 들려주세요.')
+    setLoading(true)
+    try {
+      const res = await fetch(`${API}/api/answers/polish`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ answer, question: selectedQuestion }),
+      })
+      const data = await res.json()
+      setPolished(data.polished)
+    } catch {
+      setPolished('나도 그 시절에는 두려웠단다. 하지만 그 시간이 지나고 보니 다음 길을 찾는 소중한 힘이 되었어.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function saveAnswer() {
+    if (!currentDelivery?.id) return setNotice('답변할 대상 질문이 없습니다.')
+    setLoading(true)
+    try {
+      const res = await fetch(`${API}/api/answers/deliveries/${currentDelivery.id}`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ question: selectedQuestion, answer }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || '답변 저장 실패')
+      setAnswer('')
+      setPolished('')
+      setNotice('부모님의 소중한 경험이 가족 서재에 기록되었습니다.')
+      await refreshData()
+      go('library')
+    } catch (err) {
+      setNotice(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function react(id, type) {
+    try {
+      await fetch(`${API}/api/answers/${id}/reactions`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ reaction_type: type }),
+      })
+      setLibrary(library.map((x) => (x.id === id ? { ...x, [`${type}_count`]: (x[`${type}_count`] || 0) + 1 } : x)))
+    } catch {}
+  }
+
+  return (
+    <div className="app">
+      <Header
+        token={token} family={family} user={user} userRole={userRole} screen={screen}
+        go={go} pendingCount={pendingDeliveries.length} apiStatus={apiStatus} aiReady={aiReady} onLogout={handleLogout}
+      />
+
+      {(!token || !family) && (
+        <AuthModal
+          token={token} authMode={authMode} setAuthMode={setAuthMode} authRole={authRole}
+          handleRoleChange={handleRoleChange} authSubRole={authSubRole} handleSubRoleChange={handleSubRoleChange}
+          authName={authName} setAuthName={setAuthName} authEmail={authEmail} setAuthEmail={setAuthEmail}
+          authPassword={authPassword} setAuthPassword={setAuthPassword}
+          familyNameInput={familyNameInput} setFamilyNameInput={setFamilyNameInput}
+          inviteCodeInput={inviteCodeInput} setInviteCodeInput={setInviteCodeInput}
+          handleAuthSubmit={handleAuthSubmit} loading={loading}
+        />
+      )}
+
+      {notice && <p className="notice">{notice}</p>}
+
+      {token && family && userRole === 'child' && screen === 'child' && (
+        <ChildPage
+          emotion={emotion} setEmotion={setEmotion} worry={worry} setWorry={setWorry}
+          mode={mode} setMode={setMode} transformAndSend={transformAndSend} loading={loading}
+        />
+      )}
+
+      {token && family && userRole === 'parent' && screen === 'parent' && (
+        <ParentPage
+          pendingDeliveries={pendingDeliveries} currentDelivery={currentDelivery}
+          selectedQuestion={selectedQuestion} setSelectedQuestion={setSelectedQuestion}
+          recording={recording} record={record} answer={answer} setAnswer={setAnswer}
+          polished={polished} setPolished={setPolished} polish={polish} saveAnswer={saveAnswer}
+          loading={loading} go={go}
+        />
+      )}
+
+      {token && family && screen === 'library' && (
+        <LibraryPage library={library} formatDate={formatDate} react={react} openRaw={openRaw} setOpenRaw={setOpenRaw} />
+      )}
+
+      <footer>
+        <b>슬쩍</b>
+        <p>자녀의 조용한 고민과 부모의 지나온 삶을 잇습니다.</p>
+        <small>© 2026 SEUL-JJEOCK. All rights reserved.</small>
+      </footer>
+    </div>
+  )
+}
+
+`````
+
+backend/database.py
+`````
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from models import Base
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///./seuljjeock.db"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def init_db():
+    Base.metadata.create_all(bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+`````
+
+backend/models.py
+`````
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
+from sqlalchemy.orm import declarative_base, relationship
+
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    family_memberships = relationship("FamilyMember", back_populates="user", cascade="all, delete-orphan")
+
+class Family(Base):
+    __tablename__ = "families"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    members = relationship("FamilyMember", back_populates="family", cascade="all, delete-orphan")
+    invites = relationship("FamilyInvite", back_populates="family", cascade="all, delete-orphan")
+    deliveries = relationship("QuestionDelivery", back_populates="family", cascade="all, delete-orphan")
+
+class FamilyMember(Base):
+    __tablename__ = "family_members"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    family_id = Column(Integer, ForeignKey("families.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    role = Column(String(20), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    family = relationship("Family", back_populates="members")
+    user = relationship("User", back_populates="family_memberships")
+
+class FamilyInvite(Base):
+    __tablename__ = "family_invites"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    family_id = Column(Integer, ForeignKey("families.id", ondelete="CASCADE"), nullable=False)
+    code = Column(String(32), unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    family = relationship("Family", back_populates="invites")
+
+class QuestionDelivery(Base):
+    __tablename__ = "question_deliveries"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    family_id = Column(Integer, ForeignKey("families.id", ondelete="CASCADE"), nullable=False)
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    recipient_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    emotion = Column(String(30), nullable=False)
+    mode = Column(String(30), default="stealth", nullable=False)
+    target_question = Column(Text, nullable=False)
+    questions_bundle = Column(Text, nullable=False)
+    status = Column(String(20), default="pending", nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    family = relationship("Family", back_populates="deliveries")
+    answer = relationship("Answer", back_populates="delivery", uselist=False, cascade="all, delete-orphan")
+
+class Answer(Base):
+    __tablename__ = "answers"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    delivery_id = Column(Integer, ForeignKey("question_deliveries.id", ondelete="CASCADE"), unique=True, nullable=False)
+    respondent_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    question = Column(Text, nullable=False)
+    raw_answer = Column(Text, nullable=False)
+    polished_answer = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    delivery = relationship("QuestionDelivery", back_populates="answer")
+    reactions = relationship("Reaction", back_populates="answer", cascade="all, delete-orphan")
+
+class Reaction(Base):
+    __tablename__ = "reactions"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    answer_id = Column(Integer, ForeignKey("answers.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reaction_type = Column(String(20), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    answer = relationship("Answer", back_populates="reactions")
+
+`````
+
+backend/auth.py
+`````
+import hashlib
+import os
+from datetime import datetime, timedelta
+from typing import Annotated
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from sqlalchemy.orm import Session
+from database import get_db
+from models import User
+
+SECRET_KEY = os.getenv("SECRET_KEY", "seuljjeock-super-secret-key-2026")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+def get_password_hash(password: str) -> str:
+    salt = "seuljjeock_salt"
+    return hashlib.sha256((password + salt).encode("utf-8")).hexdigest()
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return get_password_hash(plain_password) == hashed_password
+
+def create_access_token(data: dict) -> str:
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Session = Depends(get_db)) -> User:
+    cred_exc = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="로그인 정보가 유효하지 않습니다.")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None: raise cred_exc
+    except JWTError:
+        raise cred_exc
+    user = db.query(User).filter(User.email == email).first()
+    if user is None: raise cred_exc
+    return user
+
+`````
+
+backend/main.py
+`````
+from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from database import init_db
+from routers.answers import router as answers_router
+from routers.auth import router as auth_router
+from routers.families import router as families_router
+from routers.questions import router as questions_router
+from routers.system import router as system_router
+
+load_dotenv()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+app = FastAPI(title="슬쩍 API", version="2.0.0", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(system_router)
+app.include_router(auth_router)
+app.include_router(families_router)
+app.include_router(questions_router)
+app.include_router(answers_router)
+
+`````
+
+backend/schemas/auth.py
+`````
+from datetime import datetime
+from pydantic import BaseModel, EmailStr, Field
+
+class UserRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=4)
+    name: str = Field(..., min_length=1, max_length=50)
+
+class UserLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    name: str
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+`````
+
+backend/schemas/family.py
+`````
+from datetime import datetime
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class FamilyCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50)
+    role: Literal["parent", "child"]
+
+class FamilyJoinRequest(BaseModel):
+    invite_code: str = Field(..., min_length=6, max_length=32)
+    role: Literal["parent", "child"]
+
+class FamilyInviteResponse(BaseModel):
+    invite_code: str
+    expires_at: datetime
+
+class FamilyMemberResponse(BaseModel):
+    user_id: int
+    name: str
+    email: str
+    role: str
+    class Config:
+        from_attributes = True
+
+class FamilyDetailResponse(BaseModel):
+    id: int
+    name: str
+    members: list[FamilyMemberResponse] = []
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+`````
+
+backend/schemas/question.py
+`````
+from datetime import datetime
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class QuestionRequest(BaseModel):
+    worry: str = Field(..., min_length=1)
+    emotion: str = Field(default="지침")
+    mode: str = Field(default="stealth")
+
+class QuestionDeliveryCreate(BaseModel):
+    family_id: int
+    emotion: str
+    worry: str = Field(..., min_length=1)
+    recipient_id: int | None = None
+    mode: str = "stealth"
+
+class QuestionDeliveryResponse(BaseModel):
+    id: int
+    family_id: int
+    sender_id: int
+    recipient_id: int | None
+    emotion: str
+    mode: str
+    status: Literal["pending", "answered"]
+    questions: list[str]
+    target_question: str
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+`````
+
+backend/schemas/answer.py
+`````
+from datetime import datetime
+from typing import Literal
+from pydantic import BaseModel, Field
+
+class AnswerRequest(BaseModel):
+    answer: str = Field(..., min_length=1)
+    question: str = Field(..., min_length=1)
+
+class AnswerCreateRequest(BaseModel):
+    question: str
+    answer: str = Field(..., min_length=1)
+
+class AnswerResponse(BaseModel):
+    id: int
+    delivery_id: int
+    respondent_id: int
+    author_name: str | None = None
+    emotion: str | None = None
+    question: str
+    raw_answer: str
+    polished_answer: str
+    thanks_count: int = 0
+    moved_count: int = 0
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class ReactionRequest(BaseModel):
+    reaction_type: Literal["thanks", "moved"]
+
+`````
+
+backend/data/question_bank.py
+`````
+QUESTION_POOLS = {
+    "career": {
+        "keywords": ("면접", "취업", "탈락", "회사", "직장", "이직", "시험", "합격"),
+        "questions": [
+            "청년 시절, 가장 포기하고 싶었던 순간과 그것을 이겨낸 계기는 무엇인가요?",
+            "노력해도 결과가 따라오지 않을 때, 마음을 다시 일으킨 방법은 무엇이었나요?",
+            "처음 사회에 나설 때 가장 막막했던 일과, 지금의 나에게 해주고 싶은 말은 무엇인가요?",
+            "기회가 계속 멀어지는 것처럼 느껴졌을 때, 어떤 작은 행동을 이어갔나요?",
+            "실패라고 생각했던 경험이 나중에 다른 길을 열어 준 적이 있나요?",
+        ],
+    },
+    "failure": {
+        "keywords": ("실패", "망했", "포기", "못하", "후회", "좌절", "자신감"),
+        "questions": [
+            "뜻대로 되지 않아 실패했다고 느꼈을 때, 다시 일어설 수 있었던 힘은 무엇이었나요?",
+            "스스로가 작아 보였던 시절, 다시 자신을 믿게 된 계기가 있었나요?",
+            "돌이켜보면 실패가 아니라 방향을 바꾼 순간이었던 경험이 있나요?",
+            "큰 후회를 품고도 하루를 살아가기 위해 했던 가장 작은 일은 무엇이었나요?",
+        ],
+    },
+    "relationship": {
+        "keywords": ("친구", "연애", "헤어", "관계", "싸웠", "사람", "부모", "가족"),
+        "questions": [
+            "소중한 사람과 마음이 멀어졌을 때, 관계를 다시 이어 본 경험이 있나요?",
+            "사람에게 상처받았을 때도 마음을 닫지 않을 수 있었던 이유는 무엇인가요?",
+            "오래된 관계를 지키기 위해 먼저 내려놓아야 했던 것은 무엇이었나요?",
+            "이별 뒤에야 알게 된 사랑이나 관계의 의미가 있었나요?",
+        ],
+    },
+    "choice": {
+        "keywords": ("진로", "꿈", "선택", "전공", "결정", "앞날", "미래"),
+        "questions": [
+            "인생의 갈림길에서 어떤 기준으로 나만의 길을 선택했나요?",
+            "남들이 원하는 길과 내가 원하는 길이 달랐을 때 어떻게 결정했나요?",
+            "정답이 없는 선택 앞에서 후회를 줄이기 위해 무엇을 확인했나요?",
+            "계획과 다른 길을 걷게 되었지만 오히려 잘됐다고 느낀 적이 있나요?",
+        ],
+    },
+    "money": {
+        "keywords": ("돈", "월급", "경제", "생활비", "빚", "집", "가난"),
+        "questions": [
+            "형편이 넉넉하지 않았던 시절, 마음을 지키며 살아낸 방법은 무엇이었나요?",
+            "돈 때문에 중요한 선택을 망설였을 때 무엇을 우선순위에 두었나요?",
+            "적은 것으로도 충분하다고 느꼈던 기억이 있나요?",
+            "경제적으로 가장 불안했던 때, 생활을 다시 세운 첫걸음은 무엇이었나요?",
+        ],
+    },
+    "lonely": {
+        "keywords": ("외로", "혼자", "쓸쓸", "우울", "힘들", "지쳐", "불안"),
+        "questions": [
+            "혼자라고 느꼈던 시절, 곁을 지켜 준 말이나 기억이 있었나요?",
+            "아무것도 하고 싶지 않을 만큼 지쳤을 때, 하루를 건너게 해 준 것은 무엇이었나요?",
+            "걱정이 꼬리를 물던 밤, 마음을 조금 편하게 해 준 방법이 있었나요?",
+            "누군가에게 약한 모습을 보여도 괜찮다고 처음 느낀 순간은 언제였나요?",
+        ],
+    },
+}
+
+GENERAL_QUESTIONS = [
+    "살면서 마음처럼 되지 않았지만, 결국 나를 단단하게 만든 순간은 언제였나요?",
+    "지금의 나를 만든, 그때는 미처 몰랐던 중요한 경험이 있나요?",
+    "힘든 시절의 나에게 한 문장만 건넬 수 있다면 어떤 말을 해주고 싶나요?",
+    "인생에서 서두르지 않아도 된다는 걸 깨달은 순간이 있었나요?",
+    "누군가의 짧은 말이 오래 힘이 되어 준 경험이 있나요?",
+    "돌아보면 잘 견뎌냈다고 스스로를 안아주고 싶은 때는 언제인가요?",
+]
+
+LIGHT_KEYWORDS = (
+    "좋아", "먹", "음식", "노래", "영화", "여행", "취미", "주말",
+    "어릴 때", "학교", "친구랑", "재미", "행복",
+)
+
+LIGHT_QUESTIONS = [
+    "어릴 때 용돈을 받으면 가장 먼저 사고 싶었던 것은 무엇인가요?",
+    "요즘 다시 먹고 싶은 어린 시절의 간식이 있나요?",
+    "학창 시절 친구들과 가장 많이 웃었던 기억은 무엇인가요?",
+    "하루를 쉬게 된다면 아무 계획 없이 가장 하고 싶은 일은 무엇인가요?",
+    "처음 혼자 떠났던 여행에서 가장 기억에 남는 장면은 무엇인가요?",
+    "기분이 좋아질 때 무심코 흥얼거리는 노래가 있나요?",
+    "가족과 다시 한번 함께 먹고 싶은 음식은 무엇인가요?",
+    "어릴 때는 좋아했지만 지금은 잊고 지낸 취미가 있나요?",
+    "최근 예상하지 못하게 웃음이 났던 순간은 언제였나요?",
+    "계절이 바뀔 때마다 떠오르는 가족의 추억이 있나요?",
+    "지금도 또렷하게 기억나는 첫 월급날의 작은 소비가 있나요?",
+    "우리 가족 중 나와 가장 닮았다고 느끼는 사람은 누구인가요?",
+]
+
+LIGHT_TARGET_RULES = [
+    (("먹", "음식", "간식", "요리"), "어릴 때 가장 좋아해서 자주 찾았던 음식이나 간식은 무엇인가요?"),
+    (("노래", "음악", "가수"), "젊은 시절 가장 좋아해서 자주 들었던 노래는 무엇인가요?"),
+    (("여행", "놀러", "휴가"), "지금도 다시 가보고 싶은 가장 즐거웠던 여행지는 어디인가요?"),
+    (("취미", "주말", "쉬는 날"), "시간 가는 줄 모르고 즐겼던 취미나 주말 활동이 있었나요?"),
+    (("학교", "학창", "친구"), "학창 시절 친구들과 가장 많이 웃었던 기억은 무엇인가요?"),
+]
+
+`````
+
+backend/services/openai_client.py
+`````
+import json
+import os
+import urllib.error
+import urllib.request
+
+def _call_gemini(*, api_key: str, instructions: str, input_text: str, schema: dict, max_output_tokens: int = 500) -> dict | None:
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        prompt = f"{instructions}\n\n[반환 형식]\n반드시 순수 JSON으로만 응답하세요.\n스키마: {json.dumps(schema, ensure_ascii=False)}"
+        model = genai.GenerativeModel(model_name=model_name, generation_config={"response_mime_type": "application/json", "max_output_tokens": max_output_tokens, "temperature": 0.7})
+        response = model.generate_content([prompt, input_text])
+        if response and response.text:
+            return json.loads(response.text.strip())
+    except Exception as e:
+        print(f"[Gemini Error] {e}")
+    return None
+
+def _call_openai(*, api_key: str, instructions: str, input_text: str, schema_name: str, schema: dict, max_output_tokens: int = 500) -> dict | None:
+    payload = {
+        "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+        "store": False,
+        "instructions": instructions,
+        "input": input_text,
+        "text": {"format": {"type": "json_schema", "name": schema_name, "strict": True, "schema": schema}},
+        "max_output_tokens": max_output_tokens,
+    }
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/responses",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        output_text = result.get("output_text")
+        if not output_text:
+            for item in result.get("output", []):
+                for content in item.get("content", []):
+                    if content.get("type") == "output_text":
+                        output_text = content.get("text")
+                        break
+        return json.loads(output_text or "{}")
+    except Exception as e:
+        print(f"[OpenAI Error] {e}")
+    return None
+
+def request_structured_output(*, instructions: str, input_text: str, schema_name: str, schema: dict, max_output_tokens: int = 500) -> dict | None:
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if gemini_key:
+        res = _call_gemini(api_key=gemini_key, instructions=instructions, input_text=input_text, schema=schema, max_output_tokens=max_output_tokens)
+        if res: return res
+    if openai_key:
+        res = _call_openai(api_key=openai_key, instructions=instructions, input_text=input_text, schema_name=schema_name, schema=schema, max_output_tokens=max_output_tokens)
+        if res: return res
+    return None
+
+`````
+
+backend/services/question_service.py
+`````
+import random
+import re
+
+from data.question_bank import (
+    GENERAL_QUESTIONS,
+    LIGHT_KEYWORDS,
+    LIGHT_QUESTIONS,
+    LIGHT_TARGET_RULES,
+    QUESTION_POOLS,
+)
+from schemas.question import QuestionRequest
+from services.openai_client import request_structured_output
+
+
+def local_question_feed(text: str, emotion: str) -> dict:
+    normalized = re.sub(r"\s+", " ", text).lower()
+    ranked = []
+    for pool in QUESTION_POOLS.values():
+        score = sum(1 for keyword in pool["keywords"] if keyword in normalized)
+        if score:
+            ranked.append((score, pool["questions"]))
+    ranked.sort(key=lambda item: item[0], reverse=True)
+
+    seed = sum(ord(char) for char in normalized + emotion)
+    rng = random.Random(seed)
+    is_light = any(keyword in normalized for keyword in LIGHT_KEYWORDS)
+    target_pool = LIGHT_QUESTIONS if is_light else (ranked[0][1] if ranked else GENERAL_QUESTIONS)
+    target = rng.choice(target_pool)
+
+    if is_light:
+        for keywords, tailored_question in LIGHT_TARGET_RULES:
+            if any(keyword in normalized for keyword in keywords):
+                target = tailored_question
+                break
+
+    decoy_pools = [
+        pool["questions"]
+        for pool in QUESTION_POOLS.values()
+        if pool["questions"] is not target_pool
+    ]
+    rng.shuffle(decoy_pools)
+    light_decoys = [question for question in LIGHT_QUESTIONS if question != target]
+    rng.shuffle(light_decoys)
+    decoys = light_decoys[:2]
+    decoys.append(rng.choice(decoy_pools[0]))
+    decoys.append(rng.choice([question for question in GENERAL_QUESTIONS if question != target]))
+
+    feed = list(dict.fromkeys([target, *decoys]))
+    while len(feed) < 5:
+        candidate = rng.choice(GENERAL_QUESTIONS)
+        if candidate not in feed:
+            feed.append(candidate)
+    rng.shuffle(feed)
+    return {"target_question": target, "feed": feed}
+
+
+def ai_question_feed(body: QuestionRequest) -> dict | None:
+    schema = {
+        "type": "object",
+        "properties": {
+            "target_question": {"type": "string"},
+            "decoy_questions": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {"type": "string"},
+            },
+        },
+        "required": ["target_question", "decoy_questions"],
+        "additionalProperties": False,
+    }
+    instructions = (
+        "당신은 자녀의 말 못 할 고민을 부모에게 들키지 않게 전달하는 한국어 질문 편집자다. target_question 한 개에는 자녀가 실제로 알고 싶은 "
+        "핵심 정보와 질문 의도(무엇을 겪었는지, 어떻게 견뎠는지, 어떤 기준이었는지 등)를 반드시 보존한다. 다만 자녀, 현재 사건, 회사명, 시험명, 인물 등 "
+        "신원을 짐작할 단서는 지우고 부모 자신의 과거 경험을 묻는 자연스러운 회고 질문으로 바꾼다. 지나치게 보편화해 핵심 의도를 잃지 않는다. "
+        "decoy_questions 네 개는 target과 무관한 일상, 추억, 관계, 가치관 주제를 서로 다르게 만든다. 다섯 질문은 문체와 길이가 비슷해야 하며 어느 것이 "
+        "자녀 질문인지 구별할 수 없어야 한다. 모두 35~65자의 존댓말 한 문장으로 작성하고 조언을 직접 요구하지 않는다."
+        "자녀 질문 자체가 가벼운 취향이나 추억 질문이면 의미를 과장하거나 무겁게 만들지 않는다. decoy_questions 중 최소 두 개는 음식, 취미, 학창 시절, "
+        "여행, 계절, 소소한 웃음처럼 짧게 답해도 즐거운 가벼운 질문으로 만들고, 다섯 질문 전체가 상담 설문처럼 느껴지지 않게 질문의 무게를 섞는다."
+    )
+    parsed = request_structured_output(
+        instructions=instructions,
+        input_text=f"자녀 감정: {body.emotion}\n전달 모드: {body.mode}\n자녀 고민: {body.worry}",
+        schema_name="family_questions",
+        schema=schema,
+    )
+    if not parsed:
+        return None
+
+    target = parsed.get("target_question")
+    decoys = parsed.get("decoy_questions", [])
+    if not target or len(decoys) != 4:
+        return None
+
+    feed = [target, *decoys]
+    random.SystemRandom().shuffle(feed)
+    return {"target_question": target, "feed": feed}
+
+
+def transform_question(body: QuestionRequest) -> dict:
+    result = ai_question_feed(body)
+    source = "openai" if result else "local"
+    result = result or local_question_feed(body.worry, body.emotion)
+    return {
+        "question": result["feed"][0],
+        "questions": result["feed"],
+        "target_question": result["target_question"],
+        "source": source,
+        "mode": body.mode,
+        "emotion": body.emotion,
+        "privacy": "자녀 질문 한 개가 네 개의 일상 질문 사이에 익명으로 섞였습니다.",
+    }
+
+`````
+
+backend/services/answer_service.py
+`````
+import re
+
+from schemas.answer import AnswerRequest
+from services.openai_client import request_structured_output
+
+
+def ai_polish(body: AnswerRequest) -> str | None:
+    schema = {
+        "type": "object",
+        "properties": {"polished": {"type": "string"}},
+        "required": ["polished"],
+        "additionalProperties": False,
+    }
+    instructions = (
+        "당신은 부모가 말한 답변을 가족에게 전하기 좋은 한국어 문장으로 다듬는 편집자다. 먼저 질문이 정확히 무엇을 묻는지 파악하고, 다듬은 답변이 "
+        "그 질문에 직접 답하도록 한다. 부모가 말하지 않은 사건, 감정, 행동, 교훈은 절대 새로 만들지 않는다. 원문의 구체적인 사실과 말투의 개성은 보존하되 "
+        "명령, 비난, 잔소리처럼 들리는 부분만 부드럽게 바꾼다. 음식·취미·여행·학창 시절 같은 가벼운 질문에는 인생 교훈이나 과한 위로를 붙이지 말고 "
+        "밝고 자연스러운 1~2문장으로 쓴다. 실패·불안·관계 같은 깊은 질문에는 경험, 당시 마음, 도움이 된 행동이 원문에 있는 범위에서 드러나도록 2~4문장으로 쓴다. "
+        "답변자는 부모이므로 1인칭 회고 말투를 사용하고, 자녀가 읽는다는 사실을 노골적으로 드러내지 않는다. 질문을 반복하거나 서론을 붙이지 않는다."
+    )
+    parsed = request_structured_output(
+        instructions=instructions,
+        input_text=f"질문: {body.question}\n부모의 원문 답변: {body.answer}",
+        schema_name="polished_parent_answer",
+        schema=schema,
+    )
+    if not parsed:
+        return None
+
+    polished = parsed.get("polished")
+    return polished.strip() if polished else None
+
+
+def polish_local(text: str, question: str) -> str:
+    text = re.sub(r"\s+", " ", text).strip().rstrip(". ")
+    light_markers = (
+        "음식", "간식", "노래", "취미", "여행", "학창", "웃", "계절",
+        "월급", "닮", "쉬는 날",
+    )
+    if any(marker in question for marker in light_markers):
+        return f"{text}."
+
+    replacements = {
+        "그냥 버텼": "하루씩 견뎌냈",
+        "별거 아니": "지나고 보니 그 시간도 삶의 한 부분이었",
+        "다 쓸모가 있": "모두 다음 길을 알아보는 힘이 되어 주었",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    if len(text) < 28:
+        text = f"나도 처음에는 쉽지 않았단다. {text}"
+    return f"{text}. 지금은 앞이 보이지 않더라도, 네가 지나온 시간은 사라지지 않고 분명 다음 걸음을 내딛는 힘이 되어 줄 거야."
+
+
+def polish_answer(body: AnswerRequest) -> dict:
+    polished = ai_polish(body)
+    source = "openai" if polished else "local"
+    return {
+        "polished": polished or polish_local(body.answer, body.question),
+        "original": body.answer,
+        "source": source,
+    }
+
+`````
+
+backend/routers/system.py
+`````
+import os
+from fastapi import APIRouter
+
+router = APIRouter(tags=["system"])
+
+@router.get("/")
+def root(): return {"message": "슬쩍 API가 마음을 잇고 있어요."}
+
+@router.get("/api/health")
+def health():
+    gk = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+    ok = bool(os.getenv("OPENAI_API_KEY"))
+    return {"status": "ok", "ai": gk or ok, "provider": "gemini" if gk else ("openai" if ok else "local")}
+
+`````
+
+backend/routers/auth.py
+`````
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from auth import create_access_token, get_password_hash, verify_password
+from database import get_db
+from models import User
+from schemas.auth import TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
+
+router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def register(body: UserRegisterRequest, db: Session = Depends(get_db)):
+    if db.query(User).filter(User.email == body.email).first():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이미 등록된 이메일입니다.")
+    user = User(email=body.email, password_hash=get_password_hash(body.password), name=body.name)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+@router.post("/login", response_model=TokenResponse)
+def login(body: UserLoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == body.email).first()
+    if not user or not verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="이메일 또는 비밀번호가 잘못되었습니다.")
+    token = create_access_token({"sub": user.email, "uid": user.id})
+    return {"access_token": token, "token_type": "bearer", "user": user}
+
+`````
+
+backend/routers/families.py
+`````
+from datetime import datetime, timedelta
+import secrets
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from auth import get_current_user
+from database import get_db
+from models import Family, FamilyInvite, FamilyMember, User
+from schemas.family import FamilyCreateRequest, FamilyDetailResponse, FamilyInviteResponse, FamilyJoinRequest
+
+router = APIRouter(prefix="/api/families", tags=["families"])
+
+@router.post("", response_model=FamilyDetailResponse, status_code=status.HTTP_201_CREATED)
+def create_family(body: FamilyCreateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    family = Family(name=body.name)
+    db.add(family)
+    db.flush()
+    mem = FamilyMember(family_id=family.id, user_id=current_user.id, role=body.role)
+    db.add(mem)
+    db.commit()
+    db.refresh(family)
+    return {"id": family.id, "name": family.name, "members": [{"user_id": current_user.id, "name": current_user.name, "email": current_user.email, "role": body.role}], "created_at": family.created_at}
+
+@router.post("/invites", response_model=FamilyInviteResponse)
+def create_invite(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    mem = db.query(FamilyMember).filter(FamilyMember.user_id == current_user.id).first()
+    if not mem: raise HTTPException(status_code=400, detail="가족에 소속되어 있지 않습니다.")
+    code = secrets.token_hex(4).upper()
+    expires_at = datetime.utcnow() + timedelta(days=3)
+    invite = FamilyInvite(family_id=mem.family_id, code=code, expires_at=expires_at)
+    db.add(invite)
+    db.commit()
+    return {"invite_code": code, "expires_at": expires_at}
+
+@router.post("/join", response_model=FamilyDetailResponse)
+def join_family(body: FamilyJoinRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    inv = db.query(FamilyInvite).filter(FamilyInvite.code == body.invite_code, FamilyInvite.expires_at > datetime.utcnow()).first()
+    if not inv: raise HTTPException(status_code=404, detail="유효하지 않은 초대 코드입니다.")
+    if db.query(FamilyMember).filter(FamilyMember.family_id == inv.family_id, FamilyMember.user_id == current_user.id).first():
+        raise HTTPException(status_code=400, detail="이미 참여한 가족입니다.")
+    mem = FamilyMember(family_id=inv.family_id, user_id=current_user.id, role=body.role)
+    db.add(mem)
+    db.commit()
+    fam = db.query(Family).filter(Family.id == inv.family_id).first()
+    return {"id": fam.id, "name": fam.name, "members": [{"user_id": m.user.id, "name": m.user.name, "email": m.user.email, "role": m.role} for m in fam.members], "created_at": fam.created_at}
+
+`````
+
+backend/routers/questions.py
+`````
+import json
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
+from auth import get_current_user
+from database import get_db
+from models import FamilyMember, QuestionDelivery, User
+from schemas.question import QuestionDeliveryCreate, QuestionDeliveryResponse, QuestionRequest
+from services.question_service import transform_question
+
+router = APIRouter(prefix="/api/questions", tags=["questions"])
+
+@router.post("/transform")
+def transform(body: QuestionRequest):
+    return transform_question(body)
+
+@router.post("/deliveries", response_model=QuestionDeliveryResponse, status_code=status.HTTP_201_CREATED)
+def create_question_delivery(body: QuestionDeliveryCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    mem = db.query(FamilyMember).filter(FamilyMember.family_id == body.family_id, FamilyMember.user_id == current_user.id).first()
+    if not mem: raise HTTPException(status_code=403, detail="가족 구성원이 아닙니다.")
+    req = QuestionRequest(worry=body.worry, emotion=body.emotion, mode=body.mode)
+    res = transform_question(req)
+    delivery = QuestionDelivery(
+        family_id=body.family_id, sender_id=current_user.id, recipient_id=body.recipient_id,
+        emotion=body.emotion, mode=body.mode, target_question=res["target_question"],
+        questions_bundle=json.dumps(res["questions"], ensure_ascii=False), status="pending"
+    )
+    db.add(delivery)
+    db.commit()
+    db.refresh(delivery)
+    return {"id": delivery.id, "family_id": delivery.family_id, "sender_id": delivery.sender_id, "recipient_id": delivery.recipient_id, "emotion": delivery.emotion, "mode": delivery.mode, "status": delivery.status, "questions": json.loads(delivery.questions_bundle), "target_question": delivery.target_question, "created_at": delivery.created_at}
+
+@router.get("/deliveries", response_model=list[QuestionDeliveryResponse])
+def get_question_deliveries(family_id: int, status: str = Query("pending"), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    mem = db.query(FamilyMember).filter(FamilyMember.family_id == family_id, FamilyMember.user_id == current_user.id).first()
+    if not mem: raise HTTPException(status_code=403, detail="조회 권한이 없습니다.")
+    query = db.query(QuestionDelivery).filter(QuestionDelivery.family_id == family_id)
+    if mem.role == "parent":
+        query = query.filter((QuestionDelivery.recipient_id == current_user.id) | (QuestionDelivery.recipient_id.is_(None)))
+    if status != "all":
+        query = query.filter(QuestionDelivery.status == status)
+    deliveries = query.order_by(QuestionDelivery.created_at.desc()).all()
+    return [{"id": d.id, "family_id": d.family_id, "sender_id": d.sender_id, "recipient_id": d.recipient_id, "emotion": d.emotion, "mode": d.mode, "status": d.status, "questions": json.loads(d.questions_bundle), "target_question": d.target_question, "created_at": d.created_at} for d in deliveries]
+
+`````
+
+backend/routers/answers.py
+`````
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from auth import get_current_user
+from database import get_db
+from models import Answer, FamilyMember, QuestionDelivery, Reaction, User
+from schemas.answer import AnswerCreateRequest, AnswerRequest, AnswerResponse, ReactionRequest
+from services.answer_service import polish_answer
+
+router = APIRouter(prefix="/api/answers", tags=["answers"])
+
+@router.post("/polish")
+def polish(body: AnswerRequest):
+    return polish_answer(body)
+
+@router.post("/deliveries/{delivery_id}", response_model=AnswerResponse, status_code=status.HTTP_201_CREATED)
+def submit_answer(delivery_id: int, body: AnswerCreateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    delivery = db.query(QuestionDelivery).filter(QuestionDelivery.id == delivery_id).first()
+    if not delivery: raise HTTPException(status_code=404, detail="질문이 없습니다.")
+    mem = db.query(FamilyMember).filter(FamilyMember.family_id == delivery.family_id, FamilyMember.user_id == current_user.id).first()
+    if not mem or mem.role != "parent": raise HTTPException(status_code=403, detail="부모 권한만 답변 가능합니다.")
+    if delivery.status == "answered": raise HTTPException(status_code=400, detail="이미 답변된 질문입니다.")
+    polished_res = polish_answer(AnswerRequest(answer=body.answer, question=body.question))
+    answer = Answer(delivery_id=delivery.id, respondent_id=current_user.id, question=body.question, raw_answer=body.answer, polished_answer=polished_res["polished"])
+    db.add(answer)
+    delivery.status = "answered"
+    db.commit()
+    db.refresh(answer)
+    return {"id": answer.id, "delivery_id": answer.delivery_id, "respondent_id": answer.respondent_id, "author_name": current_user.name, "emotion": delivery.emotion, "question": answer.question, "raw_answer": answer.raw_answer, "polished_answer": answer.polished_answer, "thanks_count": 0, "moved_count": 0, "created_at": answer.created_at}
+
+@router.get("", response_model=list[AnswerResponse])
+def get_library_answers(family_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    answers = db.query(Answer).join(QuestionDelivery, Answer.delivery_id == QuestionDelivery.id).filter(QuestionDelivery.family_id == family_id).order_by(Answer.created_at.desc()).all()
+    res = []
+    for a in answers:
+        u = db.query(User).filter(User.id == a.respondent_id).first()
+        tc = db.query(Reaction).filter(Reaction.answer_id == a.id, Reaction.reaction_type == "thanks").count()
+        mc = db.query(Reaction).filter(Reaction.answer_id == a.id, Reaction.reaction_type == "moved").count()
+        res.append({"id": a.id, "delivery_id": a.delivery_id, "respondent_id": a.respondent_id, "author_name": u.name if u else "부모님", "emotion": a.delivery.emotion if a.delivery else None, "question": a.question, "raw_answer": a.raw_answer, "polished_answer": a.polished_answer, "thanks_count": tc, "moved_count": mc, "created_at": a.created_at})
+    return res
+
+@router.post("/{answer_id}/reactions")
+def react_answer(answer_id: int, body: ReactionRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    reaction = Reaction(answer_id=answer_id, user_id=current_user.id, reaction_type=body.reaction_type)
+    db.add(reaction)
+    db.commit()
+    return {"message": "반응 완료"}
+
+`````
+
+START.bat
+`````
+@echo off
+title SEUL-JJEOCK RUNNER
+cd /d "%~dp0"
+
+echo ===================================================
+echo   Starting SEUL-JJEOCK Full-Stack Service...
+echo ===================================================
+
+:: 1. Backend port 8000 cleanup
+powershell -Command "Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"
+
+:: 2. Frontend port 5173 cleanup
+powershell -Command "Get-NetTCPConnection -LocalPort 5173 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"
+
+:: 3. Setup Python venv and install packages
+cd /d "%~dp0backend"
+if not exist ".venv" (
+    echo [*] Creating virtual environment...
+    python -m venv .venv
+)
+
+call .venv\Scripts\activate.bat
+echo [*] Checking backend packages...
+python -m pip install -q fastapi uvicorn pydantic python-dotenv google-generativeai sqlalchemy "python-jose[cryptography]" "pydantic[email]"
+
+:: 4. Setup Frontend packages
+cd /d "%~dp0frontend"
+if not exist "node_modules" (
+    echo [*] Installing frontend packages...
+    call npm install
+)
+
+:: 5. Launch Backend and Frontend in separate windows
+echo [*] Launching Servers...
+
+start "BACKEND_SERVER" cmd /k "cd /d %~dp0backend && call .venv\Scripts\activate.bat && python -m uvicorn main:app --port 8000"
+
+start "FRONTEND_SERVER" cmd /k "cd /d %~dp0frontend && npm run dev"
+
+echo.
+echo ===================================================
+echo   Running! Access: http://localhost:5173
+echo ===================================================
+timeout /t 5 >nul
+`````
