@@ -4,6 +4,12 @@
 
 ## 🛠 Tech Stack
 
+## 서버실행
+
+backend 터미널 uvicorn main:app --reload
+
+frontend 터미널 npm run dev
+
 ### Frontend
 
 - React
