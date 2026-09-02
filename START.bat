@@ -13,9 +13,9 @@ if not exist ".venv" (
     python -m venv .venv
 )
 
-:: 3. Activate and Install Packages
+:: 3. Activate and Install Packages (누락된 DB 및 인증 패키지 추가)
 call .venv\Scripts\activate.bat
-python -m pip install -q fastapi uvicorn pydantic python-dotenv google-generativeai
+python -m pip install -q fastapi uvicorn pydantic python-dotenv google-generativeai sqlalchemy "python-jose[cryptography]" "pydantic[email]"
 
 :: 4. Start FastAPI Server
 echo [*] Starting FastAPI Server on port 8000...
