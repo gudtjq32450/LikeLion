@@ -3209,6 +3209,12 @@ button { cursor: pointer; }
 .family { justify-self: end; display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 11px; }
 .family > span { display: flex; align-items: center; gap: 8px; }
 .family > span b { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--sage); font: 700 11px var(--serif); }
+.header-tools { display: flex; align-items: center; gap: 8px; }
+.header-tools > span { display: flex; align-items: center; gap: 8px; }
+.header-tools code { padding: 5px 7px; border-radius: 7px; color: var(--terra); background: var(--paper-deep); font-size: 9px; font-weight: 700; }
+.header-action { padding: 6px 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--terra); background: rgba(255,255,255,.45); font-size: 9px; }
+.header-logout { width: 29px; height: 29px; padding: 5px; border: 0; color: var(--muted); background: transparent; }
+.header-logout svg { width: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
 .api-status { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.42); font-size: 9px; }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #c8a375; }
 .status-dot.online { background: #74896d; box-shadow: 0 0 0 3px rgba(116,137,109,.12); }
@@ -3342,7 +3348,7 @@ button { cursor: pointer; }
   .app nav button { min-width: 33.33vw; flex: 1; border-top: 2px solid transparent; border-bottom: 0; }
   .app nav button.on { border-top-color: var(--terra); border-bottom-color: transparent; }
   .family { grid-column: 2; grid-row: 1; }
-  .family > span, .api-status span { display: none; }
+  .header-tools > span, .header-tools code, .api-status span { display: none; }
   .api-status { padding: 8px; }
   .session-bar { width: calc(100% - 28px); margin: 12px auto -34px; justify-content: center; flex-wrap: wrap; }
   .session-bar > span { width: 100%; text-align: center; }
@@ -3378,18 +3384,14 @@ import './QuestionOptions.css'
 import './FeatureUpdates.css'
 import heroEnvelopeEyes from './assets/hero-envelope-eyes.png'
 import heroLetter from './assets/hero-letter.gif'
+import Header from './components/Header'
+import ChildPage from './components/ChildPage'
+import ParentPage from './components/ParentPage'
+import LibraryPage from './components/LibraryPage'
+import { Icon } from './utils/icons'
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 const heroBackgrounds = [heroEnvelopeEyes, heroLetter]
-
-const emotions = [
-  ['지침', '😮‍💨'],
-  ['불안', '😟'],
-  ['기쁨', '😊'],
-  ['외로움', '🥺'],
-  ['설렘', '🥰'],
-  ['슬픔', '😢'],
-]
 
 const formatDate = (dateString) => {
   if (!dateString) return ''
@@ -3397,41 +3399,17 @@ const formatDate = (dateString) => {
   return new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' }).format(d)
 }
 
-function Icon({ type }) {
-  const d = {
-    arrow: 'M5 12h14m-5-5 5 5-5 5',
-    back: 'm15 18-6-6 6-6',
-    check: 'm5 12 4 4L19 6',
-    mic: 'M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-6 8a6 6 0 0 0 12 0m-6 6v4m-3 0h6',
-    book: 'M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5V5.5Zm16 0A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5v-16Z',
-  }[type]
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d={d} />
-    </svg>
-  )
-}
-
 export default function App() {
-  // 인증 및 가족 정보
   const [token, setToken] = useState(() => localStorage.getItem('seuljjeock-token') || '')
   const [user, setUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('seuljjeock-user')) || null
-    } catch {
-      return null
-    }
+    try { return JSON.parse(localStorage.getItem('seuljjeock-user')) || null } catch { return null }
   })
   const [family, setFamily] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('seuljjeock-family')) || null
-    } catch {
-      return null
-    }
+    try { return JSON.parse(localStorage.getItem('seuljjeock-family')) || null } catch { return null }
   })
+  const [userRole, setUserRole] = useState(() => localStorage.getItem('seuljjeock-role') || 'child')
 
-  // 인증 모달 상태
-  const [authMode, setAuthMode] = useState('login') // 'login', 'register', 'family_create', 'family_join'
+  const [authMode, setAuthMode] = useState('login')
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [authName, setAuthName] = useState('')
@@ -3440,28 +3418,21 @@ export default function App() {
   const [familyNameInput, setFamilyNameInput] = useState('')
   const [inviteCode, setInviteCode] = useState('')
 
-  // API 서버 상태 감시 인디케이터 ('checking' | 'online' | 'offline')
   const [apiStatus, setApiStatus] = useState('checking')
   const [aiReady, setAiReady] = useState(false)
-
-  // 화면 탭 및 입력 상태
-  const [screen, setScreen] = useState('child')
+  const [screen, setScreen] = useState(() => (userRole === 'parent' ? 'parent' : 'child'))
   const [emotion, setEmotion] = useState('지침')
   const [worry, setWorry] = useState('')
   const [mode, setMode] = useState('stealth')
 
-  // 부모 화면용 상태
   const [currentDelivery, setCurrentDelivery] = useState(null)
   const [pendingDeliveries, setPendingDeliveries] = useState([])
   const [selectedQuestion, setSelectedQuestion] = useState('')
   const [answer, setAnswer] = useState('')
   const [polished, setPolished] = useState('')
-
-  // 서재 상태
   const [library, setLibrary] = useState([])
   const [openRaw, setOpenRaw] = useState(null)
 
-  // 공통 UI 상태
   const [loading, setLoading] = useState(false)
   const [notice, setNotice] = useState('')
   const [recording, setRecording] = useState(false)
@@ -3477,21 +3448,6 @@ export default function App() {
     setScreen(next)
     setNotice('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  const logout = () => {
-    localStorage.removeItem('seuljjeock-token')
-    localStorage.removeItem('seuljjeock-user')
-    localStorage.removeItem('seuljjeock-family')
-    setToken('')
-    setUser(null)
-    setFamily(null)
-    setInviteCode('')
-    setPendingDeliveries([])
-    setLibrary([])
-    setCurrentDelivery(null)
-    setAuthMode('login')
-    go('child')
   }
 
   const createInvite = async () => {
@@ -3515,7 +3471,6 @@ export default function App() {
     }
   }
 
-  // 1. API 헬스체크 루프 (5초마다 백엔드 감시)
   useEffect(() => {
     const checkHealth = async () => {
       try {
@@ -3533,7 +3488,6 @@ export default function App() {
         setAiReady(false)
       }
     }
-
     checkHealth()
     const interval = setInterval(checkHealth, 5000)
     return () => clearInterval(interval)
@@ -3551,9 +3505,7 @@ export default function App() {
   const refreshData = useCallback(async () => {
     if (!token || !family?.id) return
     try {
-      const qRes = await fetch(`${API}/api/questions/deliveries?family_id=${family.id}&status=pending`, {
-        headers: authHeaders(),
-      })
+      const qRes = await fetch(`${API}/api/questions/deliveries?family_id=${family.id}&status=pending`, { headers: authHeaders() })
       if (qRes.ok) {
         const deliveries = await qRes.json()
         setPendingDeliveries(deliveries)
@@ -3565,10 +3517,7 @@ export default function App() {
           setSelectedQuestion('')
         }
       }
-
-      const aRes = await fetch(`${API}/api/answers?family_id=${family.id}`, {
-        headers: authHeaders(),
-      })
+      const aRes = await fetch(`${API}/api/answers?family_id=${family.id}`, { headers: authHeaders() })
       if (aRes.ok) {
         const answers = await aRes.json()
         setLibrary(answers)
@@ -3586,12 +3535,10 @@ export default function App() {
     }
   }, [family?.id, refreshData, screen, token])
 
-  // 3. 인증 및 가족 처리
   const handleAuthSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setNotice('')
-
     try {
       if (authMode === 'login') {
         const res = await fetch(`${API}/api/auth/login`, {
@@ -3600,23 +3547,23 @@ export default function App() {
           body: JSON.stringify({ email: authEmail, password: authPassword }),
         })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.detail || '로그인 실패')
-
+        if (!res.ok) throw new Error(data.detail || '로그인에 실패했습니다.')
         setToken(data.access_token)
         setUser(data.user)
         localStorage.setItem('seuljjeock-token', data.access_token)
         localStorage.setItem('seuljjeock-user', JSON.stringify(data.user))
-        setNotice(`${data.user.name}님 환영합니다! 가족 그룹을 선택해 주세요.`)
+        setNotice(`${data.user.name}님 환영합니다! 가족 그룹을 연결해 주세요.`)
         setAuthMode('family_join')
       } else if (authMode === 'register') {
+        const displayName = authName.trim()
         const res = await fetch(`${API}/api/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: authEmail, password: authPassword, name: authName }),
+          body: JSON.stringify({ email: authEmail, password: authPassword, name: displayName }),
         })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.detail || '회원가입 실패')
-        setNotice('가입이 완료되었습니다. 로그인해 주세요.')
+        if (!res.ok) throw new Error(data.detail || '회원가입에 실패했습니다.')
+        setNotice('가입이 완료되었습니다. 방금 만든 정보로 로그인해 주세요.')
         setAuthMode('login')
       } else if (authMode === 'family_create') {
         const res = await fetch(`${API}/api/families`, {
@@ -3627,8 +3574,11 @@ export default function App() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.detail || '가족 생성 실패')
         setFamily(data)
+        setUserRole(authRole)
         localStorage.setItem('seuljjeock-family', JSON.stringify(data))
-        setNotice(`'${data.name}' 가족이 생성되었습니다!`)
+        localStorage.setItem('seuljjeock-role', authRole)
+        setNotice(`'${data.name}' 가족이 연결되었습니다!`)
+        go(authRole === 'parent' ? 'parent' : 'child')
       } else if (authMode === 'family_join') {
         const res = await fetch(`${API}/api/families/join`, {
           method: 'POST',
@@ -3638,8 +3588,11 @@ export default function App() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.detail || '가족 참여 실패')
         setFamily(data)
+        setUserRole(authRole)
         localStorage.setItem('seuljjeock-family', JSON.stringify(data))
-        setNotice(`'${data.name}' 가족에 합류했습니다!`)
+        localStorage.setItem('seuljjeock-role', authRole)
+        setNotice(`'${data.name}' 가족에 참여하셨습니다!`)
+        go(authRole === 'parent' ? 'parent' : 'child')
       }
     } catch (err) {
       setNotice(err.message)
@@ -3648,31 +3601,40 @@ export default function App() {
     }
   }
 
-  // 4. 자녀 질문 전송 (/api/questions/deliveries)
+  const handleLogout = () => {
+    localStorage.removeItem('seuljjeock-token')
+    localStorage.removeItem('seuljjeock-user')
+    localStorage.removeItem('seuljjeock-family')
+    localStorage.removeItem('seuljjeock-role')
+    setToken('')
+    setUser(null)
+    setFamily(null)
+    setUserRole('child')
+    setInviteCode('')
+    setPendingDeliveries([])
+    setLibrary([])
+    setCurrentDelivery(null)
+    setAuthMode('login')
+    setNotice('로그아웃되었습니다.')
+  }
+
   async function transformAndSend() {
     if (!worry.trim()) return setNotice('마음에 걸리는 일을 한 줄만 들려주세요.')
-    if (!family?.id) return setNotice('가족 그룹에 먼저 연결되어야 질문을 보낼 수 있습니다.')
-
+    if (!family?.id) return setNotice('가족 그룹에 먼저 연결되어야 질문을 전송할 수 있습니다.')
     setLoading(true)
     setNotice('')
     try {
       const res = await fetch(`${API}/api/questions/deliveries`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({
-          family_id: family.id,
-          worry,
-          emotion,
-          mode,
-        }),
+        body: JSON.stringify({ family_id: family.id, worry, emotion, mode }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || '질문 전달 실패')
-
       setWorry('')
-      setNotice('자녀 질문을 4개의 일상 질문 사이에 섞어 부모님께 조용히 보냈어요.')
+      setNotice('부모님이 부담 느끼지 않도록 4개의 일상 질문 사이에 섞어 조용히 보냈어요.')
       await refreshData()
-      go('parent')
+      go('library')
     } catch (err) {
       setNotice(err.message)
     } finally {
@@ -3680,14 +3642,10 @@ export default function App() {
     }
   }
 
-  // 5. 음성 시뮬레이션
   function record() {
-    if (recording) {
-      clearTimeout(timer.current)
-      return setRecording(false)
-    }
+    if (recording) { clearTimeout(timer.current); return setRecording(false) }
     setRecording(true)
-    setNotice('부모님의 목소리를 듣고 있어요…')
+    setNotice('목소리를 듣고 있어요…')
     timer.current = setTimeout(() => {
       setRecording(false)
       setAnswer('나도 그때는 앞이 캄캄하고 막막했단다. 그래도 하루하루 버티다 보니 다 지나가더라.')
@@ -3695,7 +3653,6 @@ export default function App() {
     }, 2200)
   }
 
-  // 6. 부모 답변 AI 다듬기 (/api/answers/polish)
   async function polish() {
     if (!answer.trim()) return setNotice('짧게라도 경험을 들려주세요.')
     setLoading(true)
@@ -3715,7 +3672,6 @@ export default function App() {
     }
   }
 
-  // 7. 답변 최종 제출 (질문 answered 변경 및 서재 저장)
   async function saveAnswer() {
     if (!currentDelivery?.id) return setNotice('답변할 대상 질문이 없습니다.')
     setLoading(true)
@@ -3723,17 +3679,13 @@ export default function App() {
       const res = await fetch(`${API}/api/answers/deliveries/${currentDelivery.id}`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({
-          question: selectedQuestion,
-          answer: answer,
-        }),
+        body: JSON.stringify({ question: selectedQuestion, answer }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || '답변 저장 실패')
-
       setAnswer('')
       setPolished('')
-      setNotice('부모님의 따뜻한 지혜가 서재에 등록되었습니다.')
+      setNotice('부모님의 소중한 경험이 가족 서재에 기록되었습니다.')
       await refreshData()
       go('library')
     } catch (err) {
@@ -3743,7 +3695,6 @@ export default function App() {
     }
   }
 
-  // 8. 서재 공감 반응
   async function react(id, type) {
     try {
       const res = await fetch(`${API}/api/answers/${id}/reactions`, {
@@ -3875,7 +3826,7 @@ export default function App() {
         <div className="onboarding-orb orb-two" />
         <header className="onboarding-header">
           <b>슬쩍</b>
-          <button onClick={logout}>로그아웃</button>
+          <button onClick={handleLogout}>로그아웃</button>
         </header>
         <main className="onboarding-card">
           <span className="onboarding-step">WELCOME, {user?.name}</span>
@@ -3941,478 +3892,33 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* 헤더 네비게이션 */}
-      <header>
-        <button className="brand" onClick={() => go('child')}>
-          <b>슬쩍</b>
-          <span>마음을 잇는 작은 질문</span>
-        </button>
-        <nav>
-          <button className={screen === 'child' ? 'on' : ''} onClick={() => go('child')}>
-            마음 보내기
-          </button>
-          <button className={screen === 'parent' ? 'on' : ''} onClick={() => go('parent')}>
-            오늘의 문답 {pendingDeliveries.length > 0 && `(${pendingDeliveries.length})`}
-          </button>
-          <button className={screen === 'library' ? 'on' : ''} onClick={() => go('library')}>
-            지혜 서재
-          </button>
-        </nav>
-        <div className="family">
-          {/* API 상태 표시 인디케이터 (초록불/빨간불) */}
-          <div
-            className="api-status"
-            title={
-              apiStatus === 'online'
-                ? `API 연결됨 (AI: ${aiReady ? '활성화' : '로컬 모드'})`
-                : 'API 연결 끊김 (백엔드 서버 확인 필요)'
-            }
-          >
-            <i className={`status-dot ${apiStatus === 'online' ? 'online' : 'offline'}`} />
-            <span>{apiStatus === 'online' ? (aiReady ? 'AI ON' : 'API OK') : '서버 오프라인'}</span>
-          </div>
-
-          {user ? (
-            <span>
-              {family?.name || '가족 미참여'} <b>{user.name[0]}</b>
-            </span>
-          ) : (
-            <button
-              onClick={() => setAuthMode('login')}
-              style={{ border: 0, background: 'var(--terra)', color: '#fff', padding: '6px 12px', borderRadius: 4 }}
-            >
-              로그인
-            </button>
-          )}
-        </div>
-      </header>
-
-      {token && family && (
-        <div className="session-bar">
-          <span>
-            <b>{family.name}</b> · {user?.name}
-          </span>
-          {inviteCode && <code>{inviteCode}</code>}
-          <button onClick={createInvite}>초대 코드 만들기</button>
-          <button onClick={logout}>로그아웃</button>
-        </div>
-      )}
-
-      {/* 인증 및 가족 관리 모달 */}
-      {(!token || !family) && (
-        <div className="paper" style={{ maxWidth: 450, margin: '40px auto', padding: 30 }}>
-          <h2 style={{ fontFamily: 'var(--serif)', marginBottom: 15, color: 'var(--ink)' }}>
-            {!token
-              ? authMode === 'login'
-                ? '로그인'
-                : '회원가입'
-              : authMode === 'family_create'
-                ? '새 가족 만들기'
-                : '가족 초대 코드 입력'}
-          </h2>
-
-          <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {!token && authMode === 'register' && (
-              <input
-                type="text"
-                placeholder="이름 또는 호칭 (예: 딸, 아빠)"
-                value={authName}
-                onChange={(e) => setAuthName(e.target.value)}
-                required
-                style={{ padding: 10, border: '1px solid var(--line)' }}
-              />
-            )}
-            {!token && (
-              <>
-                <input
-                  type="email"
-                  placeholder="이메일 주소"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  required
-                  style={{ padding: 10, border: '1px solid var(--line)' }}
-                />
-                <input
-                  type="password"
-                  placeholder="비밀번호"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  required
-                  style={{ padding: 10, border: '1px solid var(--line)' }}
-                />
-              </>
-            )}
-
-            {token && authMode === 'family_create' && (
-              <input
-                type="text"
-                placeholder="가족 이름 (예: 김가네)"
-                value={familyNameInput}
-                onChange={(e) => setFamilyNameInput(e.target.value)}
-                required
-                style={{ padding: 10, border: '1px solid var(--line)' }}
-              />
-            )}
-
-            {token && authMode === 'family_join' && (
-              <input
-                type="text"
-                placeholder="8자리 초대 코드"
-                value={inviteCodeInput}
-                onChange={(e) => setInviteCodeInput(e.target.value)}
-                required
-                style={{ padding: 10, border: '1px solid var(--line)' }}
-              />
-            )}
-
-            {token && (
-              <div style={{ display: 'flex', gap: 15, fontSize: 13 }}>
-                <label>
-                  <input
-                    type="radio"
-                    name="role"
-                    value="child"
-                    checked={authRole === 'child'}
-                    onChange={() => setAuthRole('child')}
-                  />{' '}
-                  자녀
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    name="role"
-                    value="parent"
-                    checked={authRole === 'parent'}
-                    onChange={() => setAuthRole('parent')}
-                  />{' '}
-                  부모
-                </label>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: 12,
-                background: 'var(--terra)',
-                color: '#fff',
-                border: 0,
-                borderRadius: 4,
-                fontWeight: 'bold',
-              }}
-            >
-              {loading ? '처리 중...' : '확인'}
-            </button>
-          </form>
-
-          <div style={{ marginTop: 15, display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-            {!token ? (
-              <button
-                onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
-                style={{ border: 0, background: 'none', color: 'var(--muted)' }}
-              >
-                {authMode === 'login' ? '회원가입하기' : '이미 계정이 있으신가요? 로그인'}
-              </button>
-            ) : (
-              <button
-                onClick={() => setAuthMode(authMode === 'family_join' ? 'family_create' : 'family_join')}
-                style={{ border: 0, background: 'none', color: 'var(--muted)' }}
-              >
-                {authMode === 'family_join' ? '가족 만들기' : '초대 코드로 참여하기'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      <Header
+        token={token} family={family} user={user} userRole={userRole} screen={screen}
+        go={go} pendingCount={pendingDeliveries.length} apiStatus={apiStatus} aiReady={aiReady}
+        onLogout={handleLogout} onCreateInvite={createInvite} inviteCode={inviteCode}
+      />
 
       {notice && <p className="notice">{notice}</p>}
 
-      {/* 1. 자녀 화면 (마음 보내기) */}
-      {screen === 'child' && (
-        <main className="page child">
-          <div className="eyebrow">마음 전달</div>
-          <h1>
-            마음에 걸리는 일을
-            <br />
-            슬쩍 꺼내보세요
-          </h1>
-          <p className="lead">
-            자녀의 직접적인 고민 내용은 부모님께 노출되지 않습니다.
-            <br />
-            AI가 부모님의 과거 회고 질문으로 바꾸어 다른 일상 질문 4개와 함께 전달합니다.
-          </p>
-
-          <div className="paper">
-            <div className="step">
-              <span>01</span>
-              <div>
-                <h2>지금 마음의 날씨</h2>
-                <p>가장 가까운 감정을 골라주세요</p>
-              </div>
-            </div>
-            <div className="emotions">
-              {emotions.map(([label, icon]) => (
-                <button
-                  key={label}
-                  className={emotion === label ? 'selected' : ''}
-                  onClick={() => setEmotion(label)}
-                >
-                  <i>{icon}</i>
-                  <span>{label}</span>
-                </button>
-              ))}
-            </div>
-
-            <hr />
-
-            <div className="step">
-              <span>02</span>
-              <div>
-                <h2>속마음 적어보기</h2>
-                <p>부모님께 직접 말하기 힘든 고민을 적어주세요</p>
-              </div>
-            </div>
-            <label className="field">
-              <textarea
-                placeholder="예: 취업 준비가 길어져서 자꾸 포기하고 싶어져요. 노력해도 안 되는 것 같아 막막해요."
-                value={worry}
-                onChange={(e) => setWorry(e.target.value)}
-              />
-              <small>{worry.length}자</small>
-            </label>
-
-            <hr />
-
-            <div className="step">
-              <span>03</span>
-              <div>
-                <h2>전달 방식</h2>
-                <p>자녀의 원래 고민은 저장되지 않고 질문 피드로만 변환됩니다</p>
-              </div>
-            </div>
-            <div className="modes">
-              <button
-                className={mode === 'stealth' ? 'selected' : ''}
-                onClick={() => setMode('stealth')}
-              >
-                <i />
-                <div>
-                  <b>
-                    익명 질문 묶음 <em>추천</em>
-                  </b>
-                  <p>4개의 가벼운 일상 질문 속에 자녀의 핵심 질문 1개를 숨겨서 전달합니다.</p>
-                </div>
-              </button>
-              <button
-                className={mode === 'direct' ? 'selected' : ''}
-                onClick={() => setMode('direct')}
-              >
-                <i />
-                <div>
-                  <b>단독 질문</b>
-                  <p>정제된 회고 질문 1개만 부모님께 전달합니다.</p>
-                </div>
-              </button>
-            </div>
-
-            <button className="action" disabled={loading} onClick={transformAndSend}>
-              {loading ? <i></i> : '질문 배달하기'}
-              {!loading && <Icon type="arrow" />}
-            </button>
-            <p className="privacy">자녀의 원문 고민은 AI 변환 즉시 삭제되며 DB에 저장되지 않습니다.</p>
-          </div>
-        </main>
+      {token && family && userRole === 'child' && screen === 'child' && (
+        <ChildPage
+          emotion={emotion} setEmotion={setEmotion} worry={worry} setWorry={setWorry}
+          mode={mode} setMode={setMode} transformAndSend={transformAndSend} loading={loading}
+        />
       )}
 
-      {/* 2. 부모 화면 (오늘의 문답) */}
-      {screen === 'parent' && (
-        <main className="page parent">
-          <button className="back" onClick={() => go('child')}>
-            <Icon type="back" /> 자녀 모드로 돌아가기
-          </button>
-          <div className="hero">
-            <div>
-              <div className="eyebrow">오늘의 문답</div>
-              <h1>
-                자녀에게서 도착한
-                <br />
-                질문 묶음
-              </h1>
-              <p className="lead">
-                가족의 마음이 담긴 질문들입니다. 편하게 마음에 드는 질문을 골라 짧게 경험을 들려주세요.
-              </p>
-            </div>
-            <div className="date">
-              <span>DATE</span>
-              <b>{new Date().getDate()}</b>
-              <small>{new Date().getMonth() + 1}월</small>
-            </div>
-          </div>
-
-          {pendingDeliveries.length === 0 ? (
-            <div className="paper" style={{ textAlign: 'center', padding: '60px 20px' }}>
-              <p style={{ color: 'var(--muted)', fontSize: 15 }}>현재 도착한 미답변 질문이 없습니다.</p>
-              <button
-                className="action"
-                style={{ width: 220, margin: '20px auto 0' }}
-                onClick={() => go('child')}
-              >
-                새 질문 보내보기
-              </button>
-            </div>
-          ) : (
-            <div className="paper">
-              <div className="step">
-                <span>01</span>
-                <div>
-                  <h2>답변할 질문 선택</h2>
-                  <p>5개의 질문 중 이야기해 주고 싶은 질문을 선택해 주세요</p>
-                </div>
-              </div>
-              <div style={{ display: 'grid', gap: 10, marginBottom: 25 }}>
-                {currentDelivery?.questions?.map((q, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedQuestion(q)}
-                    style={{
-                      padding: '14px 16px',
-                      textAlign: 'left',
-                      border: selectedQuestion === q ? '2px solid var(--terra)' : '1px solid var(--line)',
-                      background: selectedQuestion === q ? '#fdf5ef' : '#fffcf8',
-                      borderRadius: 4,
-                      fontSize: 14,
-                      fontFamily: 'var(--serif)',
-                    }}
-                  >
-                    {idx + 1}. {q}
-                  </button>
-                ))}
-              </div>
-
-              <div className="question">
-                <div>
-                  <b>선택된 질문</b>
-                  <em>{currentDelivery?.emotion}</em>
-                </div>
-                <blockquote>{selectedQuestion}</blockquote>
-              </div>
-
-              <div className="answer">
-                <div className="answer-head">
-                  <h2>나의 경험 들려주기</h2>
-                  <span>텍스트 또는 음성</span>
-                </div>
-
-                <div className={`recorder ${recording ? 'live' : ''}`}>
-                  <button onClick={record}>
-                    <Icon type="mic" />
-                  </button>
-                  <div>
-                    <b>음성으로 들려주기</b>
-                    <small>{recording ? '음성을 듣고 있습니다...' : '마이크 버튼을 눌러 말씀해 보세요'}</small>
-                  </div>
-                  {recording && (
-                    <div className="wave">
-                      <i />
-                      <i />
-                      <i />
-                    </div>
-                  )}
-                </div>
-
-                <div className="or">또는 직접 입력</div>
-
-                <div className="field">
-                  <textarea
-                    placeholder="그때를 돌이켜보면 어떤 마음이었는지 편하게 적어주세요."
-                    value={answer}
-                    onChange={(e) => setAnswer(e.target.value)}
-                  />
-                </div>
-
-                <button
-                  className="action"
-                  disabled={loading || !answer.trim()}
-                  onClick={polish}
-                  style={{ marginTop: 15 }}
-                >
-                  {loading ? <i></i> : 'AI로 말투 다듬기'}
-                </button>
-
-                {polished && (
-                  <div className="polished">
-                    <div>
-                      <span>자녀에게 전달될 다듬어진 문장</span>
-                    </div>
-                    <p>{polished}</p>
-                    <div className="actions">
-                      <button onClick={() => setPolished('')}>다시 쓰기</button>
-                      <button onClick={saveAnswer} disabled={loading}>
-                        이 답변으로 지혜 남기기
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </main>
+      {token && family && userRole === 'parent' && screen === 'parent' && (
+        <ParentPage
+          pendingDeliveries={pendingDeliveries} currentDelivery={currentDelivery}
+          selectedQuestion={selectedQuestion} setSelectedQuestion={setSelectedQuestion}
+          recording={recording} record={record} answer={answer} setAnswer={setAnswer}
+          polished={polished} setPolished={setPolished} polish={polish} saveAnswer={saveAnswer}
+          loading={loading}
+        />
       )}
 
-      {/* 3. 지혜 서재 화면 */}
-      {screen === 'library' && (
-        <main className="page library">
-          <div className="eyebrow">가족 서재</div>
-          <h1>우리가 나눈 지혜들</h1>
-          <p className="lead">부모님의 경험과 온기가 담긴 답변들을 다시 읽고 간직할 수 있습니다.</p>
-
-          <div className="wisdom-list" style={{ marginTop: 35 }}>
-            {library.length === 0 ? (
-              <p style={{ textAlign: 'center', color: 'var(--muted)', padding: 40 }}>아직 등록된 지혜 답변이 없습니다.</p>
-            ) : (
-              library.map((item) => (
-                <article key={item.id} className="wisdom">
-                  <div className="wisdom-top">
-                    <span>{item.emotion || '따뜻함'}</span>
-                    <time>{formatDate(item.created_at)}</time>
-                  </div>
-                  <small>질문: {item.question}</small>
-                  <blockquote>{item.polished_answer}</blockquote>
-
-                  <div className="author">
-                    <b>{item.author_name ? item.author_name[0] : '부'}</b>
-                    <div>
-                      <strong>{item.author_name || '부모님'}</strong>
-                      <span>가족의 지혜</span>
-                    </div>
-                  </div>
-
-                  <div className="wisdom-foot">
-                    <div>
-                      <button onClick={() => react(item.id, 'thanks')}>
-                        고마워요 {item.thanks_count > 0 && `(${item.thanks_count})`}
-                      </button>
-                      <button onClick={() => react(item.id, 'moved')}>
-                        감동이에요 {item.moved_count > 0 && `(${item.moved_count})`}
-                      </button>
-                    </div>
-                    <button onClick={() => setOpenRaw(openRaw === item.id ? null : item.id)}>
-                      {openRaw === item.id ? '원문 접기' : '부모님 말씀 원문 보기'}
-                    </button>
-                  </div>
-
-                  {openRaw === item.id && (
-                    <div className="raw">
-                      <b>부모님의 원래 답변</b>
-                      <p>{item.raw_answer}</p>
-                    </div>
-                  )}
-                </article>
-              ))
-            )}
-          </div>
-        </main>
+      {token && family && screen === 'library' && (
+        <LibraryPage library={library} formatDate={formatDate} react={react} openRaw={openRaw} setOpenRaw={setOpenRaw} />
       )}
 
       <footer>
@@ -4490,6 +3996,365 @@ frontend/src/assets/vite.svg
 <svg xmlns="http://www.w3.org/2000/svg" width="77" height="47" fill="none" aria-labelledby="vite-logo-title" viewBox="0 0 77 47"><title id="vite-logo-title">Vite</title><style>.parenthesis{fill:#000}@media (prefers-color-scheme:dark){.parenthesis{fill:#fff}}</style><path fill="#9135ff" d="M40.151 45.71c-.663.844-2.02.374-2.02-.699V34.708a2.26 2.26 0 0 0-2.262-2.262H24.493c-.92 0-1.457-1.04-.92-1.788l7.479-10.471c1.07-1.498 0-3.578-1.842-3.578H15.443c-.92 0-1.456-1.04-.92-1.788l9.696-13.576c.213-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.472c-1.07 1.497 0 3.578 1.842 3.578h11.376c.944 0 1.474 1.087.89 1.83L40.153 45.712z"/><mask id="a" width="48" height="47" x="14" y="0" maskUnits="userSpaceOnUse" style="mask-type:alpha"><path fill="#000" d="M40.047 45.71c-.663.843-2.02.374-2.02-.699V34.708a2.26 2.26 0 0 0-2.262-2.262H24.389c-.92 0-1.457-1.04-.92-1.788l7.479-10.472c1.07-1.497 0-3.578-1.842-3.578H15.34c-.92 0-1.456-1.04-.92-1.788l9.696-13.575c.213-.297.556-.474.92-.474H53.93c.92 0 1.456 1.04.92 1.788L47.37 13.03c-1.07 1.498 0 3.578 1.842 3.578h11.376c.944 0 1.474 1.088.89 1.831L40.049 45.712z"/></mask><g mask="url(#a)"><g filter="url(#b)"><ellipse cx="5.508" cy="14.704" fill="#eee6ff" rx="5.508" ry="14.704" transform="rotate(269.814 20.96 11.29)scale(-1 1)"/></g><g filter="url(#c)"><ellipse cx="10.399" cy="29.851" fill="#eee6ff" rx="10.399" ry="29.851" transform="rotate(89.814 -16.902 -8.275)scale(1 -1)"/></g><g filter="url(#d)"><ellipse cx="5.508" cy="30.487" fill="#8900ff" rx="5.508" ry="30.487" transform="rotate(89.814 -19.197 -7.127)scale(1 -1)"/></g><g filter="url(#e)"><ellipse cx="5.508" cy="30.599" fill="#8900ff" rx="5.508" ry="30.599" transform="rotate(89.814 -25.928 4.177)scale(1 -1)"/></g><g filter="url(#f)"><ellipse cx="5.508" cy="30.599" fill="#8900ff" rx="5.508" ry="30.599" transform="rotate(89.814 -25.738 5.52)scale(1 -1)"/></g><g filter="url(#g)"><ellipse cx="14.072" cy="22.078" fill="#eee6ff" rx="14.072" ry="22.078" transform="rotate(93.35 31.245 55.578)scale(-1 1)"/></g><g filter="url(#h)"><ellipse cx="3.47" cy="21.501" fill="#8900ff" rx="3.47" ry="21.501" transform="rotate(89.009 35.419 55.202)scale(-1 1)"/></g><g filter="url(#i)"><ellipse cx="3.47" cy="21.501" fill="#8900ff" rx="3.47" ry="21.501" transform="rotate(89.009 35.419 55.202)scale(-1 1)"/></g><g filter="url(#j)"><ellipse cx="14.592" cy="9.743" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(39.51 14.592 9.743)"/></g><g filter="url(#k)"><ellipse cx="61.728" cy="-5.321" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(37.892 61.728 -5.32)"/></g><g filter="url(#l)"><ellipse cx="55.618" cy="7.104" fill="#00c2ff" rx="5.971" ry="9.665" transform="rotate(37.892 55.618 7.104)"/></g><g filter="url(#m)"><ellipse cx="12.326" cy="39.103" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(37.892 12.326 39.103)"/></g><g filter="url(#n)"><ellipse cx="12.326" cy="39.103" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(37.892 12.326 39.103)"/></g><g filter="url(#o)"><ellipse cx="49.857" cy="30.678" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(37.892 49.857 30.678)"/></g><g filter="url(#p)"><ellipse cx="52.623" cy="33.171" fill="#00c2ff" rx="5.971" ry="15.297" transform="rotate(37.892 52.623 33.17)"/></g></g><path d="M6.919 0c-9.198 13.166-9.252 33.575 0 46.789h6.215c-9.25-13.214-9.196-33.623 0-46.789zm62.424 0h-6.215c9.198 13.166 9.252 33.575 0 46.789h6.215c9.25-13.214 9.196-33.623 0-46.789" class="parenthesis"/><defs><filter id="b" width="60.045" height="41.654" x="-5.564" y="16.92" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="7.659"/></filter><filter id="c" width="90.34" height="51.437" x="-40.407" y="-6.762" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="7.659"/></filter><filter id="d" width="79.355" height="29.4" x="-35.435" y="2.801" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="e" width="79.579" height="29.4" x="-30.84" y="20.8" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="f" width="79.579" height="29.4" x="-29.307" y="21.949" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="g" width="74.749" height="58.852" x="29.961" y="-17.13" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="7.659"/></filter><filter id="h" width="61.377" height="25.362" x="37.754" y="3.055" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="i" width="61.377" height="25.362" x="37.754" y="3.055" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="j" width="56.045" height="63.649" x="-13.43" y="-22.082" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="k" width="54.814" height="64.646" x="34.321" y="-37.644" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="l" width="33.541" height="35.313" x="38.847" y="-10.552" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="m" width="54.814" height="64.646" x="-15.081" y="6.78" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="n" width="54.814" height="64.646" x="-15.081" y="6.78" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="o" width="54.814" height="64.646" x="22.45" y="-1.645" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="p" width="39.409" height="43.623" x="32.919" y="11.36" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter></defs></svg>
 `````
 
+frontend/src/components/AuthModal.jsx
+`````
+export default function AuthModal({
+  token, authMode, setAuthMode, authRole, handleRoleChange, authSubRole, handleSubRoleChange,
+  authName, setAuthName, authEmail, setAuthEmail, authPassword, setAuthPassword,
+  familyNameInput, setFamilyNameInput, inviteCodeInput, setInviteCodeInput,
+  handleAuthSubmit, loading
+}) {
+  return (
+    <div style={{ maxWidth: 460, margin: '50px auto 80px', padding: '0 20px', animation: 'rise 0.4s ease' }}>
+      <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <span style={{ color: 'var(--terra)', fontSize: 13, fontWeight: 700, letterSpacing: '0.1em' }}>SEUL-JJEOCK</span>
+        <h1 style={{ fontFamily: 'var(--serif)', fontSize: 32, margin: '10px 0 8px', color: 'var(--ink)' }}>마음을 잇는 작은 질문</h1>
+        <p style={{ color: 'var(--muted)', fontSize: 14, lineHeight: 1.6 }}>
+          말하지 못한 자녀의 고민과 부모의 지나온 삶의 지혜를 슬쩍 이어드립니다.
+        </p>
+      </div>
+
+      <div className="paper" style={{ padding: '36px 32px' }}>
+        <h2 style={{ fontFamily: 'var(--serif)', fontSize: 20, marginBottom: 18, color: 'var(--ink)' }}>
+          {!token ? (authMode === 'login' ? '로그인' : '가족 회원가입') : (authMode === 'family_create' ? '새 가족 만들기' : '가족 초대 코드 입력')}
+        </h2>
+
+        <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {!token && authMode === 'register' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 6 }}>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>1. 역할을 선택해주세요</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <button type="button" onClick={() => handleRoleChange('child')} style={{ padding: 11, border: authRole === 'child' ? '2px solid var(--terra)' : '1px solid var(--line)', background: authRole === 'child' ? '#fdf5ef' : '#fff', color: authRole === 'child' ? 'var(--terra)' : 'var(--ink)', fontWeight: 'bold', borderRadius: 4 }}>자녀로 참여</button>
+                  <button type="button" onClick={() => handleRoleChange('parent')} style={{ padding: 11, border: authRole === 'parent' ? '2px solid var(--terra)' : '1px solid var(--line)', background: authRole === 'parent' ? '#fdf5ef' : '#fff', color: authRole === 'parent' ? 'var(--terra)' : 'var(--ink)', fontWeight: 'bold', borderRadius: 4 }}>부모로 참여</button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>2. 가족 내 호칭을 골라주세요</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {(authRole === 'child' ? ['아들', '딸'] : ['아빠', '엄마']).map((sub) => (
+                    <button key={sub} type="button" onClick={() => handleSubRoleChange(sub)} style={{ padding: 9, border: authSubRole === sub ? '2px solid var(--terra)' : '1px solid var(--line)', background: authSubRole === sub ? '#fdf5ef' : '#fff', color: authSubRole === sub ? 'var(--terra)' : 'var(--muted)', borderRadius: 4 }}>{sub}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>표시될 이름 / 닉네임</label>
+                <input type="text" placeholder="예: 큰딸, 막내아들, 아빠" value={authName} onChange={(e) => setAuthName(e.target.value)} required style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 4 }} />
+              </div>
+            </div>
+          )}
+
+          {!token && (
+            <>
+              <input type="email" placeholder="이메일 주소" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} required style={{ padding: '11px 12px', border: '1px solid var(--line)', borderRadius: 4 }} />
+              <input type="password" placeholder="비밀번호" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} required style={{ padding: '11px 12px', border: '1px solid var(--line)', borderRadius: 4 }} />
+            </>
+          )}
+
+          {token && authMode === 'family_create' && (
+            <input type="text" placeholder="가족 그룹명 (예: 행복한 우리집, 김가네)" value={familyNameInput} onChange={(e) => setFamilyNameInput(e.target.value)} required style={{ padding: '11px 12px', border: '1px solid var(--line)', borderRadius: 4 }} />
+          )}
+
+          {token && authMode === 'family_join' && (
+            <input type="text" placeholder="8자리 가족 초대 코드 (예: A1B2C3D4)" value={inviteCodeInput} onChange={(e) => setInviteCodeInput(e.target.value)} required style={{ padding: '11px 12px', border: '1px solid var(--line)', borderRadius: 4 }} />
+          )}
+
+          <button type="submit" disabled={loading} style={{ padding: 13, marginTop: 6, background: 'var(--terra)', color: '#fff', border: 0, borderRadius: 4, fontWeight: 'bold', fontSize: 14, cursor: 'pointer' }}>
+            {loading ? '처리 중...' : authMode === 'login' ? '로그인하기' : '완료하고 시작하기'}
+          </button>
+        </form>
+
+        <div style={{ marginTop: 18, display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+          {!token ? (
+            <button type="button" onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} style={{ border: 0, background: 'none', color: 'var(--muted)', textDecoration: 'underline', cursor: 'pointer' }}>
+              {authMode === 'login' ? '처음이신가요? 회원가입하기' : '이미 계정이 있으신가요? 로그인'}
+            </button>
+          ) : (
+            <button type="button" onClick={() => setAuthMode(authMode === 'family_join' ? 'family_create' : 'family_join')} style={{ border: 0, background: 'none', color: 'var(--muted)', textDecoration: 'underline', cursor: 'pointer' }}>
+              {authMode === 'family_join' ? '+ 새 가족 만들기' : '기존 가족 초대 코드로 참여하기'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+`````
+
+frontend/src/components/ChildPage.jsx
+`````
+import { Icon } from '../utils/icons'
+
+const emotions = [
+  ['지침', '😮‍💨'], ['불안', '😟'], ['기쁨', '😊'], ['외로움', '🥺'], ['설렘', '🥰'], ['슬픔', '😢']
+]
+
+export default function ChildPage({
+  emotion, setEmotion, worry, setWorry, mode, setMode, transformAndSend, loading
+}) {
+  return (
+    <main className="page child">
+      <div className="eyebrow">● 마음 전달</div>
+      <h1>마음에 걸리는 일을<br />슬쩍 꺼내보세요</h1>
+      <p className="lead">
+        자녀의 고민 내용은 부모님께 그대로 노출되지 않습니다.<br />
+        AI가 부모님의 과거 회고 질문으로 바꾸어 일상 질문 4개와 함께 전달합니다.
+      </p>
+
+      <div className="paper">
+        <div className="step">
+          <span>01</span>
+          <div><h2>지금 마음의 날씨</h2><p>가장 가까운 감정을 골라주세요</p></div>
+        </div>
+        <div className="emotions">
+          {emotions.map(([label, icon]) => (
+            <button key={label} className={emotion === label ? 'selected' : ''} onClick={() => setEmotion(label)}>
+              <i>{icon}</i><span>{label}</span>
+            </button>
+          ))}
+        </div>
+
+        <hr />
+
+        <div className="step">
+          <span>02</span>
+          <div><h2>속마음 적어보기</h2><p>부모님께 직접 말하기 힘든 고민을 솔직하게 적어주세요</p></div>
+        </div>
+        <label className="field">
+          <textarea placeholder="예: 취업 준비가 길어져서 자꾸 포기하고 싶어져요. 노력해도 안 되는 것 같아 막막해요." value={worry} onChange={(e) => setWorry(e.target.value)} />
+          <small>{worry.length}자</small>
+        </label>
+
+        <hr />
+
+        <div className="step">
+          <span>03</span>
+          <div><h2>전달 방식</h2><p>자녀의 원래 고민은 저장되지 않고 정제된 질문 피드로만 변환됩니다</p></div>
+        </div>
+        <div className="modes">
+          <button className={mode === 'stealth' ? 'selected' : ''} onClick={() => setMode('stealth')}>
+            <i /><div><b>익명 질문 묶음 <em>추천</em></b><p>4개의 가벼운 일상 질문 속에 자녀의 핵심 질문 1개를 숨겨서 전달합니다.</p></div>
+          </button>
+          <button className={mode === 'direct' ? 'selected' : ''} onClick={() => setMode('direct')}>
+            <i /><div><b>단독 질문</b><p>정제된 회고 질문 1개만 부모님께 전달합니다.</p></div>
+          </button>
+        </div>
+
+        <button className="action" disabled={loading} onClick={transformAndSend}>
+          {loading ? <i /> : '질문 배달하기'}
+          {!loading && <Icon type="arrow" />}
+        </button>
+        <p className="privacy">자녀의 원문 고민은 AI 변환 즉시 파기되며 DB에 저장되지 않습니다.</p>
+      </div>
+    </main>
+  )
+}
+`````
+
+frontend/src/components/Header.jsx
+`````
+import { Icon } from '../utils/icons'
+
+export default function Header({
+  token, family, user, userRole, screen, go, pendingCount, apiStatus, aiReady,
+  onLogout, onCreateInvite, inviteCode
+}) {
+  return (
+    <header>
+      <button className="brand" onClick={() => go(userRole === 'parent' ? 'parent' : 'child')}>
+        <b>슬쩍</b>
+        <span>마음을 잇는 작은 질문</span>
+      </button>
+
+      {token && family && (
+        <nav>
+          {userRole === 'child' && (
+            <button className={screen === 'child' ? 'on' : ''} onClick={() => go('child')}>
+              마음 보내기
+            </button>
+          )}
+
+          {userRole === 'parent' && (
+            <button className={screen === 'parent' ? 'on' : ''} onClick={() => go('parent')}>
+              오늘의 문답 {pendingCount > 0 && `(${pendingCount})`}
+            </button>
+          )}
+
+          <button className={screen === 'library' ? 'on' : ''} onClick={() => go('library')}>
+            지혜 서재
+          </button>
+        </nav>
+      )}
+
+      <div className="family">
+        <div
+          className="api-status"
+          title={
+            apiStatus === 'online'
+              ? `서버 정상 (AI: ${aiReady ? '작동 중' : '로컬 모드'})`
+              : '서버 연결 끊김 (백엔드 확인 필요)'
+          }
+        >
+          <i className={`status-dot ${apiStatus === 'online' ? 'online' : 'offline'}`} />
+          <span>{apiStatus === 'online' ? (aiReady ? 'AI ON' : 'API OK') : '서버 오프라인'}</span>
+        </div>
+
+        {user && (
+          <div className="header-tools">
+            <span>
+              {family?.name || '가족'} <b>{user.name[0]}</b>
+            </span>
+            {inviteCode && <code>{inviteCode}</code>}
+            <button className="header-action" onClick={onCreateInvite}>초대</button>
+            <button className="header-logout" onClick={onLogout} title="로그아웃" aria-label="로그아웃">
+              <Icon type="logout" />
+            </button>
+          </div>
+        )}
+      </div>
+    </header>
+  )
+}
+`````
+
+frontend/src/components/LibraryPage.jsx
+`````
+import { Icon } from '../utils/icons'
+
+export default function LibraryPage({ library, formatDate, react, openRaw, setOpenRaw }) {
+  return (
+    <main className="page library">
+      <div className="hero">
+        <div>
+          <div className="eyebrow">● 우리 가족 지혜 서재</div>
+          <h1>우리가 나눈 지혜들</h1>
+          <p className="lead">부모님의 경험과 온기가 담긴 답변들을 다시 읽고 간직할 수 있습니다.</p>
+        </div>
+        <div className="count">
+          <Icon type="book" /><b>{library.length}</b><span>개의 이야기</span>
+        </div>
+      </div>
+
+      <div className="wisdom-list" style={{ marginTop: 35 }}>
+        {library.length === 0 ? (
+          <p style={{ textAlign: 'center', color: 'var(--muted)', padding: 40 }}>아직 등록된 지혜 답변이 없습니다.</p>
+        ) : (
+          library.map((item) => (
+            <article key={item.id} className="wisdom">
+              <div className="wisdom-top">
+                <span>{item.emotion || '따뜻함'}</span>
+                <time>{formatDate(item.created_at)}</time>
+              </div>
+              <small>질문: {item.question}</small>
+              <blockquote>{item.polished_answer}</blockquote>
+              <div className="author">
+                <b>{item.author_name ? item.author_name[0] : '가'}</b>
+                <div><strong>{item.author_name || '부모님'}</strong><span>가족의 지혜</span></div>
+              </div>
+              <div className="wisdom-foot">
+                <div>
+                  <button onClick={() => react(item.id, 'thanks')}>고마워요 {item.thanks_count > 0 && `(${item.thanks_count})`}</button>
+                  <button onClick={() => react(item.id, 'moved')}>감동이에요 {item.moved_count > 0 && `(${item.moved_count})`}</button>
+                </div>
+                <button onClick={() => setOpenRaw(openRaw === item.id ? null : item.id)}>
+                  {openRaw === item.id ? '원문 접기' : '원문 보기'}
+                </button>
+              </div>
+              {openRaw === item.id && (
+                <div className="raw"><b>원래 건넨 말씀</b><p>{item.raw_answer}</p></div>
+              )}
+            </article>
+          ))
+        )}
+      </div>
+    </main>
+  )
+}
+`````
+
+frontend/src/components/ParentPage.jsx
+`````
+import { Icon } from '../utils/icons'
+
+export default function ParentPage({
+  pendingDeliveries, currentDelivery, selectedQuestion, setSelectedQuestion,
+  recording, record, answer, setAnswer, polished, setPolished, polish, saveAnswer,
+  loading
+}) {
+  return (
+    <main className="page parent">
+      <div className="hero">
+        <div>
+          <div className="eyebrow">● 오늘의 인생 문답</div>
+          <h1>자녀에게서 도착한<br />질문 묶음</h1>
+          <p className="lead">가족의 마음이 담긴 질문들입니다. 마음에 드는 질문을 골라 짧게 경험을 들려주세요.</p>
+        </div>
+        <div className="date">
+          <span>DATE</span><b>{new Date().getDate()}</b><small>{new Date().getMonth() + 1}월</small>
+        </div>
+      </div>
+
+      {pendingDeliveries.length === 0 ? (
+        <div className="paper" style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <p style={{ color: 'var(--muted)', fontSize: 15 }}>현재 도착한 미답변 질문이 없습니다.</p>
+          <p style={{ color: '#b0a197', fontSize: 13, marginTop: 6 }}>자녀가 마음을 담아 새 질문을 보내면 여기에 표시됩니다.</p>
+        </div>
+      ) : (
+        <div className="paper">
+          <div className="step">
+            <span>01</span>
+            <div><h2>답변할 질문 선택</h2><p>5개의 질문 중 이야기해 주고 싶은 질문을 선택해 주세요</p></div>
+          </div>
+          <div style={{ display: 'grid', gap: 10, marginBottom: 25 }}>
+            {currentDelivery?.questions?.map((q, idx) => (
+              <button key={idx} onClick={() => setSelectedQuestion(q)} style={{ padding: '14px 16px', textAlign: 'left', border: selectedQuestion === q ? '2px solid var(--terra)' : '1px solid var(--line)', background: selectedQuestion === q ? '#fdf5ef' : '#fffcf8', borderRadius: 4, fontSize: 14, fontFamily: 'var(--serif)', cursor: 'pointer' }}>
+                {idx + 1}. {q}
+              </button>
+            ))}
+          </div>
+
+          <div className="question">
+            <div><b>선택된 질문</b><em>{currentDelivery?.emotion}</em></div>
+            <blockquote>{selectedQuestion}</blockquote>
+          </div>
+
+          <div className="answer">
+            <div className="answer-head"><h2>나의 경험 들려주기</h2><span>텍스트 또는 음성</span></div>
+            <div className={`recorder ${recording ? 'live' : ''}`}>
+              <button onClick={record}><Icon type="mic" /></button>
+              <div><b>음성으로 들려주기</b><small>{recording ? '음성을 듣고 있습니다...' : '마이크 버튼을 눌러 말씀해 보세요'}</small></div>
+              {recording && <div className="wave"><i /><i /><i /></div>}
+            </div>
+
+            <div className="or">또는 직접 입력</div>
+            <div className="field">
+              <textarea placeholder="그때를 돌이켜보면 어떤 마음이었는지 편하게 적어주세요." value={answer} onChange={(e) => setAnswer(e.target.value)} />
+            </div>
+
+            <button className="action" disabled={loading || !answer.trim()} onClick={polish} style={{ marginTop: 15 }}>
+              {loading ? <i /> : 'AI로 말투 다듬기'}
+            </button>
+
+            {polished && (
+              <div className="polished">
+                <div><span>자녀에게 전달될 다듬어진 문장</span></div>
+                <p>{polished}</p>
+                <div className="actions">
+                  <button onClick={() => setPolished('')}>다시 쓰기</button>
+                  <button onClick={saveAnswer} disabled={loading}>이 답변으로 지혜 남기기</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </main>
+  )
+}
+`````
+
 frontend/src/index.css
 `````
 @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
@@ -4508,6 +4373,26 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 )
+`````
+
+frontend/src/utils/icons.jsx
+`````
+export function Icon({ type }) {
+  const d = {
+    arrow: 'M5 12h14m-5-5 5 5-5 5',
+    back: 'm15 18-6-6 6-6',
+    check: 'm5 12 4 4L19 6',
+    mic: 'M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-6 8a6 6 0 0 0 12 0m-6 6v4m-3 0h6',
+    book: 'M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5V5.5Zm16 0A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5v-16Z',
+    logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14 5-5-5-5m5 5H9',
+  }[type]
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  )
+}
 `````
 
 frontend/vite.config.js
