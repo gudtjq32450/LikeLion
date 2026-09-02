@@ -36,13 +36,12 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      - name: Grant execute permission for gradlew
+        run: chmod +x frontend/android/gradlew
+
       - name: Sync Capacitor Android
         working-directory: frontend
         run: npx cap sync android
-
-      - name: Grant execute permission for gradlew
-        working-directory: frontend/android
-        run: chmod +x gradlew
 
       - name: Build Android APK
         working-directory: frontend/android
