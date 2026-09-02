@@ -6,9 +6,27 @@
 
 ## 서버실행
 
-backend 터미널 uvicorn main:app --reload
+### 원클릭 실행
 
-frontend 터미널 npm run dev
+Windows에서는 프로젝트 루트의 `start-windows.bat`을 더블클릭합니다.
+종료할 때는 `stop-windows.bat`을 실행합니다.
+
+macOS에서는 최초 한 번 실행 권한을 부여한 뒤 `start-macos.command`를 더블클릭합니다.
+
+```bash
+chmod +x start-macos.command stop-macos.command
+```
+
+종료할 때는 `stop-macos.command`를 실행합니다.
+
+실행 파일은 최초 실행 시 Python 가상환경과 npm 패키지를 자동으로 준비하고,
+백엔드와 프런트엔드를 함께 시작한 뒤 `http://localhost:5173`을 엽니다.
+
+### 직접 실행
+
+backend 터미널: `uvicorn main:app --reload`
+
+frontend 터미널: `npm run dev`
 
 ### Frontend
 
