@@ -36,12 +36,15 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Copy Web Assets to Android
-        working-directory: frontend
-        run: npx cap copy android
-
       - name: Grant execute permission for gradlew
         run: chmod +x frontend/android/gradlew
+
+      - name: Ensure assets directory exists
+        run: mkdir -p frontend/android/app/src/main/assets/public
+
+      - name: Copy Web Assets to Android
+        working-directory: frontend
+        run: npx cap copy android --verbose
 
       - name: Build Android APK
         working-directory: frontend/android
