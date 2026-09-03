@@ -36,8 +36,9 @@
 | --- | --- |
 | Frontend | React 19, Vite 8, JavaScript, CSS |
 | Backend | Python, FastAPI, Uvicorn, Pydantic, SQLAlchemy, SQLite |
-| AI | OpenAI Responses API 또는 Gemini API |
-| Local fallback | Python 질문 은행과 답변 다듬기 규칙 |
+| AI | OpenAI Responses API 우선, 선택적 Gemini 장애 대비 |
+| Quality data | JSON 질문 라이브러리와 말투별 답변 품질 예시 |
+| Local fallback | API를 모두 사용할 수 없을 때만 쓰는 로컬 질문·답변 규칙 |
 | 현재 저장소 | SQLite 및 브라우저 로그인 상태 |
 
 ## 실행 요구사항
@@ -126,18 +127,24 @@ Frontend URL: `http://localhost:5173`
 
 ```env
 OPENAI_API_KEY=your_api_key_here
-OPENAI_MODEL=gpt-5.4-mini
+OPENAI_MODEL=gpt-5.6
+OPENAI_TIMEOUT_SECONDS=30
+OPENAI_MAX_ATTEMPTS=2
+ENABLE_GEMINI_FALLBACK=true
 GEMINI_API_KEY=
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-flash-latest
 SECRET_KEY=충분히-긴-무작위-문자열
 ```
 
-`backend/.env`는 Git에 포함하지 않습니다. API 키가 없거나 API 호출에 실패하면 앱은 자동으로 로컬 질문·답변 로직을 사용합니다. 상태 확인 API의 `ai` 값으로 키 인식 여부를 확인할 수 있습니다.
+`backend/.env`는 Git에 포함하지 않습니다. OpenAI가 항상 첫 번째 제공자이며, OpenAI 호출이 실패한 경우에만 `ENABLE_GEMINI_FALLBACK=true`일 때 Gemini를 시도합니다. 두 API를 모두 사용할 수 없을 때에만 로컬 질문·답변 로직을 사용합니다. `backend/data/question_library.json`과 `backend/data/answer_style_examples.json`은 AI 프롬프트의 품질 참고 자료이자 최종 로컬 대체 데이터입니다. 상태 확인 API의 `provider`와 `providers` 값으로 인식된 제공자와 우선순위를 확인할 수 있습니다.
 
 ```json
 {
   "status": "ok",
-  "ai": true
+  "ai": true,
+  "provider": "openai",
+  "providers": ["openai", "gemini"],
+  "openai_model": "gpt-5.6"
 }
 ```
 
@@ -187,8 +194,8 @@ LikeLion/
 │  ├─ routers/                   # 시스템·질문·답변 API
 │  ├─ schemas/                   # Pydantic 요청 형식
 │  ├─ services/                  # 질문 변환·답변 다듬기·OpenAI 통신
-│  ├─ data/                      # 로컬 질문 은행
-│  ├─ tests/                     # API 계약 및 로컬 대체 동작 테스트
+│  ├─ data/                      # JSON 질문 라이브러리와 답변 품질 예시
+│  ├─ tests/                     # API 계약·AI 우선순위·로컬 대체 테스트
 │  ├─ requirements.txt
 │  └─ .env.example
 ├─ frontend/
