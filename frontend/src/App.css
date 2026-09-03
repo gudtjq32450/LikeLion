@@ -13,7 +13,7 @@
 }
 
 button, input, textarea { font: inherit; }
-button { cursor: pointer; }
+button { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 
 /* 로그인·회원가입 홈 */
 .auth-landing { position: relative; min-height: 100vh; overflow: hidden; color: var(--ink); background: #efbd7c; }
@@ -64,7 +64,7 @@ button { cursor: pointer; }
 .onboarding-orb { position: absolute; border-radius: 50%; opacity: .55; }
 .orb-one { top: 8%; right: 8%; width: 240px; height: 240px; background: rgba(232,127,86,.22); }
 .orb-two { bottom: -90px; left: 8%; width: 320px; height: 320px; border: 1px solid rgba(182,94,60,.15); background: rgba(255,250,244,.4); }
-.onboarding-header { position: relative; z-index: 1; width: min(1080px, calc(100% - 32px)); margin: auto; padding: max(38px, calc(env(safe-area-inset-top) + 10px)) 0 16px; display: flex; justify-content: space-between; align-items: center; }
+.onboarding-header { position: relative; z-index: 1; width: min(1080px, calc(100% - 32px)); margin: auto; padding: max(12px, calc(env(safe-area-inset-top) + 10px)) 0 16px; display: flex; justify-content: space-between; align-items: center; }
 .onboarding-header b { color: var(--terra); font: 700 27px var(--serif); }
 .onboarding-header-tools { display: flex; align-items: center; gap: 8px; }
 .onboarding-user-badge { display: inline-flex; align-items: center; padding: 5px 11px; border: 1px solid rgba(91,61,47,.15); border-radius: 999px; background: rgba(255,250,244,.8); font-size: 11px; color: var(--ink); }
@@ -300,23 +300,23 @@ button { cursor: pointer; }
   .auth-card { padding: 34px 25px 26px; border-radius: 22px; }
   .onboarding-card { margin-top: 22px; padding: 35px 24px; border-radius: 22px; }
   .onboarding-card h1 { font-size: 29px; }
-  .app > header { height: auto; min-height: 60px; padding: max(38px, calc(env(safe-area-inset-top) + 10px)) 14px 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .app > header { height: auto; min-height: 54px; padding: max(8px, env(safe-area-inset-top, 8px)) 14px 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; box-sizing: border-box; }
   .brand b { font-size: 20px; }
   .brand span { display: none; }
   .app nav { position: fixed; inset: auto 0 0; z-index: 30; height: calc(56px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); display: flex; gap: 0; border-top: 1px solid var(--line); background: rgba(255,250,244,.96); backdrop-filter: blur(18px); }
   .app nav button { flex: 1; min-width: 0; padding: 8px 4px; font-size: 11px; border-top: 2px solid transparent; border-bottom: 0; }
   .app nav button.on { border-top-color: var(--terra); border-bottom-color: transparent; color: var(--terra); font-weight: 700; }
   .nav-family-btn { color: var(--terra-dark); font-weight: 600; }
-  .family { display: flex; align-items: center; gap: 5px; }
-  .api-status { padding: 5px 6px; font-size: 8px; }
-  .api-status span { display: none; }
-  .header-tools { display: flex; align-items: center; gap: 5px; }
-  .header-family-badge { padding: 5px 8px; font-size: 10px; gap: 4px; max-width: 140px; }
-  .badge-family-name { max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .badge-user-name { max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .header-logout-btn { padding: 5px 8px; font-size: 10px; gap: 3px; }
-  .header-logout-btn svg { width: 13px; height: 13px; }
-  .header-logout-btn .logout-text { display: inline; font-weight: 700; }
+  .family { display: flex; align-items: center; gap: 6px; }
+  .api-status { height: 34px; padding: 0 8px; font-size: 10.5px; box-sizing: border-box; }
+  .api-status span { display: inline; font-size: 10px; }
+  .header-tools { display: flex; align-items: center; gap: 6px; }
+  .header-family-badge { height: 34px; padding: 0 10px; font-size: 11px; gap: 4px; max-width: 155px; box-sizing: border-box; }
+  .badge-family-name { max-width: 75px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge-user-name { max-width: 65px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .header-logout-btn { height: 34px; padding: 0 9px; font-size: 11px; gap: 4px; box-sizing: border-box; }
+  .header-logout-btn svg { width: 14px; height: 14px; }
+  .header-logout-btn .logout-text { display: inline; font-weight: 700; font-size: 11px; }
   .session-bar { width: calc(100% - 28px); margin: 12px auto -34px; justify-content: center; flex-wrap: wrap; }
   .session-bar > span { width: 100%; text-align: center; }
   .page { width: min(calc(100% - 28px),580px); padding: 76px 0 96px; }
@@ -330,10 +330,10 @@ button { cursor: pointer; }
 }
 
 @media (max-width: 440px) {
-  .header-family-badge { max-width: 120px; padding: 4px 6px; font-size: 9px; }
-  .badge-family-name { max-width: 50px; }
-  .badge-user-name { max-width: 45px; }
-  .header-logout-btn { padding: 4px 7px; font-size: 9px; }
+  .header-family-badge { max-width: 130px; padding: 0 7px; }
+  .badge-family-name { max-width: 58px; }
+  .badge-user-name { max-width: 52px; }
+  .header-logout-btn { padding: 0 7px; }
   .role-picker { grid-template-columns: 1fr; }
   .page h1 { font-size: 31px; }
   .lead br, .landing-copy br { display: none; }
