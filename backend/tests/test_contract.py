@@ -16,11 +16,15 @@ from services.question_service import transform_question
 
 class ApiContractTest(unittest.TestCase):
     def setUp(self):
-        self.previous_key = os.environ.pop("OPENAI_API_KEY", None)
+        self.previous_keys = {
+            key: os.environ.pop(key, None)
+            for key in ("OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY")
+        }
 
     def tearDown(self):
-        if self.previous_key is not None:
-            os.environ["OPENAI_API_KEY"] = self.previous_key
+        for key, value in self.previous_keys.items():
+            if value is not None:
+                os.environ[key] = value
 
     def test_existing_routes_are_preserved(self):
         paths = set(app.openapi()["paths"])
