@@ -378,7 +378,7 @@ export default function App() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || '질문 전달 실패')
       setWorry('')
-      setNotice(mode === 'direct' ? '익명화한 질문 한 장을 바로 전했어요.' : '4개의 일상 질문 사이에 섞어 조용히 보냈어요.')
+      setNotice(mode === 'direct' ? "단독 질문('살짝')으로 부모님께 조용히 전달했어요." : "익명 질문 묶음('슬쩍')으로 4개의 일상 질문 사이에 섞어 보냈어요.")
       await refreshData()
     } catch (err) {
       setNotice(err.message)

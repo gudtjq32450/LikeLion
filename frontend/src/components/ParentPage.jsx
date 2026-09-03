@@ -37,8 +37,8 @@ export default function ParentPage({
 
         {directDeliveries.length > 0 && (
           <div className="answer-nudge" style={{ background: '#fdf3ea', borderColor: 'var(--terra)', marginBottom: 20 }} role="status">
-            <b style={{ color: 'var(--terra)' }}>자녀에게서 특별한 질문이 도착했어요</b>
-            <p>자녀가 직접 부모님의 생각을 묻고 싶어 보낸 질문입니다. 먼저 확인해 보세요.</p>
+            <b style={{ color: 'var(--terra)' }}>자녀에게서 살짝(단독 질문)이 도착했어요</b>
+            <p>자녀가 직접 부모님의 생각을 듣고 싶어 '살짝' 보낸 단독 질문입니다. 먼저 확인해 보세요.</p>
           </div>
         )}
 
@@ -81,10 +81,16 @@ export default function ParentPage({
                     <span style={{ fontWeight: isSelected ? 600 : 400, color: 'var(--text)' }}>
                       {qText}
                     </span>
-                    {delivery.mode === 'direct' && (
+                    {delivery.mode === 'direct' ? (
                       <span style={{ marginLeft: 8, fontSize: 11, background: 'var(--terra)', color: '#fff', padding: '2px 6px', borderRadius: 4 }}>
-                        자녀의 질문
+                        살짝 · 단독
                       </span>
+                    ) : (
+                      delivery.mode === 'stealth' && (
+                        <span style={{ marginLeft: 8, fontSize: 11, background: 'var(--sage)', color: '#fff', padding: '2px 6px', borderRadius: 4 }}>
+                          슬쩍 · 묶음
+                        </span>
+                      )
                     )}
                   </div>
                 </button>

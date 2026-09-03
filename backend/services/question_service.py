@@ -145,9 +145,9 @@ def transform_question(body: QuestionRequest) -> dict:
         "mode": body.mode,
         "emotion": body.emotion,
         "privacy": (
-            "자녀 질문 한 개가 네 개의 일상 질문 사이에 익명으로 섞였습니다."
+            "자녀 질문 한 개가 일상 질문 사이에 익명으로 섞인 '슬쩍' 모드로 전달됩니다."
             if body.mode == "stealth"
-            else "자녀의 고민을 익명화한 회고 질문 한 개로 전달합니다."
+            else "자녀의 고민을 정제한 단독 질문 '살짝' 모드로 전달합니다."
         ),
     }
 

@@ -48,10 +48,10 @@ export default function ChildPage({
         </div>
         <div className="modes">
           <button className={mode === 'stealth' ? 'selected' : ''} onClick={() => setMode('stealth')}>
-            <i /><div><b>익명 질문 묶음 <em>추천</em></b><p>4개의 가벼운 일상 질문 속에 자녀의 핵심 질문 1개를 숨겨서 전달합니다.</p></div>
+            <i /><div><b>슬쩍 <em>추천</em></b><p>익명 질문 묶음: 4개의 일상 질문 속에 자녀의 핵심 질문 1개를 슬쩍 숨겨서 전달합니다.</p></div>
           </button>
           <button className={mode === 'direct' ? 'selected' : ''} onClick={() => setMode('direct')}>
-            <i /><div><b>단독 질문</b><p>정제된 회고 질문 1개만 부모님께 전달합니다.</p></div>
+            <i /><div><b>살짝</b><p>단독 질문: 정제된 회고 질문 1개만 부모님께 살짝 직접 전달합니다.</p></div>
           </button>
         </div>
 
