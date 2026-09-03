@@ -37,15 +37,15 @@ export default function Header({
 
       <div className="family">
         <div
-          className="api-status"
+          className={`api-status ${apiStatus === 'online' ? (aiReady ? 'ai-on' : 'api-ok') : 'offline'}`}
           title={
             apiStatus === 'online'
               ? `서버 정상 (AI: ${aiReady ? '작동 중' : '로컬 모드'})`
               : '서버 연결 끊김 (백엔드 확인 필요)'
           }
         >
-          <i className={`status-dot ${apiStatus === 'online' ? 'online' : 'offline'}`} />
-          <span>{apiStatus === 'online' ? (aiReady ? 'AI ON' : 'API OK') : '오프라인'}</span>
+          <i className={`status-dot ${apiStatus === 'online' ? (aiReady ? 'ai-on' : 'api-ok') : 'offline'}`} />
+          <span>{apiStatus === 'online' ? (aiReady ? '✦ AI ON' : 'API OK') : '오프라인'}</span>
         </div>
 
         {user && (

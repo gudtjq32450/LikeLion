@@ -542,8 +542,8 @@ export default function App() {
             <span>슬쩍</span>
             <small>마음을 잇는 작은 질문</small>
           </button>
-          <div className={`landing-status ${apiStatus}`}>
-            <i /> {apiStatus === 'online' ? (aiReady ? 'AI 연결됨' : '로컬 모드') : '연결 확인 중'}
+          <div className={`landing-status ${apiStatus === 'online' ? (aiReady ? 'ai-on' : 'api-ok') : 'offline'}`}>
+            <i /> {apiStatus === 'online' ? (aiReady ? '✦ AI 연결됨' : '로컬 모드') : '연결 확인 중'}
           </div>
         </header>
 
