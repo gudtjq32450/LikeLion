@@ -41,10 +41,13 @@ command -v npm >/dev/null 2>&1 || fail "npm을 찾을 수 없습니다. Node.js 
 
 if [ -x "$BACKEND_DIR/.venv/bin/python" ]; then
   PYTHON="$BACKEND_DIR/.venv/bin/python"
-else
-  command -v python3 >/dev/null 2>&1 || fail "Python 3가 필요합니다. https://www.python.org/downloads/macos/ 에서 설치해 주세요."
+elif command -v python3.11 >/dev/null 2>&1; then
+  PYTHON="$(command -v python3.11)"
+elif command -v python3 >/dev/null 2>&1; then
   python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 10))' || fail "Python 3.10 이상이 필요합니다."
-  PYTHON="python3"
+  PYTHON="$(command -v python3)"
+else
+  fail "Python 3.10 이상이 필요합니다."
 fi
 
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
