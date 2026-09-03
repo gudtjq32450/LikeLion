@@ -1,6 +1,6 @@
 export default function FamilyPanel({
   family, user, roleLabels, inviteData, loading, message, formatDate,
-  onClose, onCreateInvite, onCopyInvite,
+  onClose, onCreateInvite, onCopyInvite, onLogout,
 }) {
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -36,6 +36,20 @@ export default function FamilyPanel({
           <button className="invite-create" type="button" onClick={onCreateInvite}>초대 코드 만들기</button>
         )}
         {message && <p className="invite-message" role="status">{message}</p>}
+        {onLogout && (
+          <div className="panel-footer-actions">
+            <button
+              type="button"
+              className="panel-logout-btn"
+              onClick={() => {
+                onClose()
+                onLogout()
+              }}
+            >
+              로그아웃하기
+            </button>
+          </div>
+        )}
       </section>
     </div>
   )

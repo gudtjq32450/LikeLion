@@ -29,6 +29,9 @@ export default function Header({
           <button className={screen === 'library' ? 'on' : ''} onClick={() => go('library')}>
             지혜 서재
           </button>
+          <button className="nav-family-btn" onClick={onOpenFamily}>
+            우리 가족
+          </button>
         </nav>
       )}
 
@@ -42,17 +45,18 @@ export default function Header({
           }
         >
           <i className={`status-dot ${apiStatus === 'online' ? 'online' : 'offline'}`} />
-          <span>{apiStatus === 'online' ? (aiReady ? 'AI ON' : 'API OK') : '서버 오프라인'}</span>
+          <span>{apiStatus === 'online' ? (aiReady ? 'AI ON' : 'API OK') : '오프라인'}</span>
         </div>
 
         {user && (
           <div className="header-tools">
-            <span>
-              {family?.name || '가족'} <b>{user.name[0]}</b>
-            </span>
-            <button className="header-action" onClick={onOpenFamily}>우리 가족</button>
-            <button className="header-logout" onClick={onLogout} title="로그아웃" aria-label="로그아웃">
+            <button className="header-family-badge" onClick={onOpenFamily} title="우리 가족 구성 및 초대코드 보기">
+              <span className="badge-family-name">{family?.name || '우리 가족'}</span>
+              <span className="badge-user-name"><b>{user.name}</b></span>
+            </button>
+            <button className="header-logout-btn" onClick={onLogout} title="로그아웃" aria-label="로그아웃">
               <Icon type="logout" />
+              <span className="logout-text">로그아웃</span>
             </button>
           </div>
         )}

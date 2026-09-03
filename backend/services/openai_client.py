@@ -28,14 +28,22 @@ def _call_gemini(*, api_key: str, instructions: str, input_text: str, schema: di
 def _call_openai(*, api_key: str, instructions: str, input_text: str, schema_name: str, schema: dict, max_output_tokens: int = 500) -> dict | None:
     payload = {
         "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-        "store": False,
-        "instructions": instructions,
-        "input": input_text,
-        "text": {"format": {"type": "json_schema", "name": schema_name, "strict": True, "schema": schema}},
-        "max_output_tokens": max_output_tokens,
+        "messages": [
+            {"role": "system", "content": instructions},
+            {"role": "user", "content": input_text},
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": schema_name,
+                "strict": True,
+                "schema": schema,
+            },
+        },
+        "max_tokens": max_output_tokens,
     }
     req = urllib.request.Request(
-        "https://api.openai.com/v1/responses",
+        "https://api.openai.com/v1/chat/completions",
         data=json.dumps(payload).encode("utf-8"),
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         method="POST",
@@ -43,27 +51,31 @@ def _call_openai(*, api_key: str, instructions: str, input_text: str, schema_nam
     try:
         with urllib.request.urlopen(req, timeout=20) as response:
             result = json.loads(response.read().decode("utf-8"))
-        output_text = result.get("output_text")
-        if not output_text:
-            for item in result.get("output", []):
-                for content in item.get("content", []):
-                    if content.get("type") == "output_text":
-                        output_text = content.get("text")
-                        break
-        return json.loads(output_text or "{}")
+        content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+        return json.loads(content or "{}")
     except Exception as e:
         print(f"[OpenAI Error] {e}")
     return None
 
+
 def request_structured_output(*, instructions: str, input_text: str, schema_name: str, schema: dict, max_output_tokens: int = 500) -> dict | None:
+    provider = os.getenv("AI_PROVIDER", "").lower()
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
+
+    if provider == "openai" and openai_key:
+        res = _call_openai(api_key=openai_key, instructions=instructions, input_text=input_text, schema_name=schema_name, schema=schema, max_output_tokens=max_output_tokens)
+        if res:
+            return {**res, "_provider": "openai"}
+
     if gemini_key:
         res = _call_gemini(api_key=gemini_key, instructions=instructions, input_text=input_text, schema=schema, max_output_tokens=max_output_tokens)
         if res:
             return {**res, "_provider": "gemini"}
+
     if openai_key:
         res = _call_openai(api_key=openai_key, instructions=instructions, input_text=input_text, schema_name=schema_name, schema=schema, max_output_tokens=max_output_tokens)
         if res:
             return {**res, "_provider": "openai"}
+
     return None

@@ -99,6 +99,7 @@ export default function App() {
 
   const authHeaders = useCallback(() => ({
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }), [token])
 
@@ -182,7 +183,7 @@ export default function App() {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const res = await fetch(`${API}/api/health`, { method: 'GET' })
+        const res = await fetch(`${API}/api/health`, { method: 'GET', headers: { 'ngrok-skip-browser-warning': 'true' } })
         if (res.ok) {
           const data = await res.json()
           setApiStatus('online')
@@ -214,25 +215,35 @@ export default function App() {
     if (!token || !family?.id) return
     try {
       const qRes = await fetch(`${API}/api/questions/deliveries?family_id=${family.id}&status=pending`, { headers: authHeaders() })
+      if (qRes.status === 401) {
+        handleLogout()
+        setNotice('로그인 세션이 만료되었습니다. 다시 로그인해 주세요.')
+        return
+      }
       if (qRes.ok) {
         const deliveries = await qRes.json()
         setPendingDeliveries(deliveries)
         if (deliveries.length > 0) {
           const active = deliveries.find((delivery) => delivery.id === currentDelivery?.id) || deliveries[0]
           setCurrentDelivery(active)
-          setSelectedQuestion((selected) => active.questions.includes(selected) ? selected : (active.questions[0] || active.target_question))
+          setSelectedQuestion((selected) => active.questions?.includes(selected) ? selected : (active.questions?.[0] || active.target_question))
         } else {
           setCurrentDelivery(null)
           setSelectedQuestion('')
         }
       }
       const aRes = await fetch(`${API}/api/answers?family_id=${family.id}`, { headers: authHeaders() })
+      if (aRes.status === 401) {
+        handleLogout()
+        setNotice('로그인 세션이 만료되었습니다. 다시 로그인해 주세요.')
+        return
+      }
       if (aRes.ok) {
         const answers = await aRes.json()
         setLibrary(answers)
       }
-    } catch {
-      setNotice('서버 데이터를 가져오는 중 오류가 발생했습니다.')
+    } catch (err) {
+      console.warn('데이터 동기화 지연:', err)
     }
   }, [authHeaders, currentDelivery?.id, family, token])
 
@@ -255,7 +266,7 @@ export default function App() {
       if (authMode === 'login') {
         const res = await fetch(`${API}/api/auth/login`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
           body: JSON.stringify({ email: authEmail, password: authPassword }),
         })
         const data = await res.json()
@@ -283,7 +294,7 @@ export default function App() {
         const displayName = authName.trim()
         const res = await fetch(`${API}/api/auth/register`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
           body: JSON.stringify({ email: authEmail, password: authPassword, name: displayName }),
         })
         const data = await res.json()
@@ -628,7 +639,13 @@ export default function App() {
         <div className="onboarding-orb orb-two" />
         <header className="onboarding-header">
           <b>슬쩍</b>
-          <button onClick={handleLogout}>로그아웃</button>
+          <div className="onboarding-header-tools">
+            <span className="onboarding-user-badge"><b>{user?.name}</b>님</span>
+            <button className="onboarding-logout-btn" onClick={handleLogout} title="로그아웃">
+              <Icon type="logout" />
+              <span>로그아웃</span>
+            </button>
+          </div>
         </header>
         <main className="onboarding-card">
           <span className="onboarding-step">WELCOME, {user?.name}</span>
@@ -722,6 +739,7 @@ export default function App() {
           onClose={() => setInviteOpen(false)}
           onCreateInvite={createInvite}
           onCopyInvite={copyInvite}
+          onLogout={handleLogout}
         />
       )}
 
