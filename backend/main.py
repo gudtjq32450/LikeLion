@@ -8,8 +8,8 @@ from routers.auth import router as auth_router
 from routers.families import router as families_router
 from routers.questions import router as questions_router
 from routers.system import router as system_router
-
-load_dotenv()
+from pathlib import Path
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 import asyncio
 import json
